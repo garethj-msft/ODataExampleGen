@@ -19,22 +19,13 @@ namespace ODataExampleGen
     {
         private static readonly Random Random = new Random();
 
-        public class Options
-        {
-            [Option('c', "csdl", Required = true, HelpText = "CSDL file to use as the model from within which to generate examples.")]
-            public string CsdlFile{ get; set; }
+        private static IEdmModel Model;
 
-            [Option('u', "uri", Required = true, HelpText = "URI to generate an example to POST to.")]
-            public string UriToPost{ get; set; }
-
-            [Option('b', "baseUri", Required = false, HelpText = "Base URI for the API.", Default = "https://graph.microsoft.com/beta/")]
-            public string BaseUrl { get; set; }
-
-        }
+        private static Dictionary<string, IEdmStructuredType> ChosenTypes = new Dictionary<string, IEdmStructuredType>();
 
         static int Main(string[] args)
         {
-            int result = Parser.Default.ParseArguments<Options>(args).MapResult(RunCommand, _ => 1);
+            int result = Parser.Default.ParseArguments<ProgramOptions>(args).MapResult(RunCommand, _ => 1);
             if (Debugger.IsAttached)
             {
                 Console.ReadLine();
@@ -43,16 +34,20 @@ namespace ODataExampleGen
             return result;
         }
 
-        private static int RunCommand(Options options)
+        private static int RunCommand(ProgramOptions options)
         {
             string csdlFileFullPath = options.CsdlFile;
             string baseUrl = options.BaseUrl;
             string uriToPost = options.UriToPost;
-            IEnumerable<EdmError> errors;
-            IEdmModel model;
-            XmlReader reader = XmlReader.Create(new StringReader(File.ReadAllText(csdlFileFullPath)));
+            if (!File.Exists(csdlFileFullPath))
+            {
+                Console.WriteLine($"Unable to locate csdl file: {csdlFileFullPath}");
+                return 1;
+            }
 
-            if (!CsdlReader.TryParse(reader, false, out model, out errors))
+            var reader = XmlReader.Create(new StringReader(File.ReadAllText(csdlFileFullPath)));
+
+            if (!CsdlReader.TryParse(reader, false, out Model, out var errors))
             {
                 StringBuilder errorMessages = new StringBuilder();
                 foreach (var error in errors)
@@ -60,6 +55,35 @@ namespace ODataExampleGen
                     Console.WriteLine(error.ErrorMessage);
                 }
                 return 1;
+            }
+
+            foreach (string optionPair in options.PropertyTypePairs)
+            {
+                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                if (pairTerms.Length != 2)
+                {
+                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:typeName'.");
+                    return 1;
+                }
+
+                IEdmType declared = null;
+                foreach (var aNamespace in Model.DeclaredNamespaces)
+                {
+                    string fqtn = $"{aNamespace}.{pairTerms[1]}";
+                    declared = Model.FindDeclaredType(fqtn);
+                    if (declared != null)
+                    {
+                        break;
+                    }
+                }
+
+                if (declared == null)
+                {
+                    Console.WriteLine($"Option '{optionPair}' is malformed, typename '{pairTerms[1]}' not found in model.");
+                    return 1;
+                }
+
+                ChosenTypes[pairTerms[0]] = (IEdmStructuredType)declared;
             }
 
             MemoryStream stream = new MemoryStream();
@@ -82,7 +106,7 @@ namespace ODataExampleGen
 
             var serviceRoot = new Uri(baseUrl, UriKind.Absolute);
             var relativeUrlToParse = uriToPost;
-            ODataUriParser parser = new ODataUriParser(model, serviceRoot, new Uri(relativeUrlToParse, UriKind.Relative));
+            ODataUriParser parser = new ODataUriParser(Model, serviceRoot, new Uri(relativeUrlToParse, UriKind.Relative));
             ODataPath path = parser.ParsePath();
             settings.ODataUri = new ODataUri
             {
@@ -98,10 +122,13 @@ namespace ODataExampleGen
             }
             else
             {
-                ODataMessageWriter writer = new ODataMessageWriter((IODataRequestMessage)message, settings, model);
-                ODataWriter resWriter = writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource);
+                ODataMessageWriter writer = new ODataMessageWriter((IODataRequestMessage)message, settings, Model);
 
-                WriteResource(resWriter, finalNavPropSegment.NavigationProperty);
+                IEdmProperty property = finalNavPropSegment.NavigationProperty;
+                IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
+                propertyType = ChooseDerivedStructuralTypeIfAny(propertyType, property.Name);
+                ODataWriter resWriter = writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource, propertyType);
+                WriteResource(resWriter, propertyType);
 
                 var output = PrettyPrint(stream);
                 Console.WriteLine(output);
@@ -125,40 +152,43 @@ namespace ODataExampleGen
             return output;
         }
 
-        private static void WriteResource(ODataWriter resWriter, IEdmProperty property)
+        private static void WriteResource(ODataWriter resWriter, IEdmStructuredType structuredType)
         {
-            var rootODR = new ODataResource();
-            IEdmStructuredType finalEntityType =
-                property.Type.Definition.AsElementType() as IEdmStructuredType;
-            AddExamplePrimitiveStructuralProperties(rootODR, finalEntityType.StructuralProperties());
+            var rootODR = new ODataResource
+            {
+                TypeName = structuredType.FullTypeName()
+            };
+            AddExamplePrimitiveStructuralProperties(rootODR, structuredType.StructuralProperties());
             resWriter.WriteStart(rootODR);
-            WriteContainedEntities(resWriter,
-                finalEntityType.DeclaredNavigationProperties().Where(p => p.ContainsTarget));
-            WriteContainedEntities(resWriter,
-                finalEntityType.DeclaredStructuralProperties().Where(p =>
+            WriteContainedResources(resWriter,
+                structuredType.NavigationProperties().Where(p => p.ContainsTarget));
+            WriteContainedResources(resWriter,
+                structuredType.StructuralProperties().Where(p =>
                     p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Complex));
             WriteReferenceBindings(resWriter,
-                finalEntityType.DeclaredNavigationProperties().Where(p => !p.ContainsTarget));
+                structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
             resWriter.WriteEnd();
         }
 
-        private static void WriteResourceSet(ODataWriter resWriter, IEdmProperty property)
+        private static void WriteResourceSet(ODataWriter resWriter, IEdmStructuredType structuredType)
         {
             var set = new ODataResourceSet();
-            var rootODR = new ODataResource();
-            IEdmStructuredType finalEntityType =
-                property.Type.Definition.AsElementType() as IEdmStructuredType;
-            AddExamplePrimitiveStructuralProperties(rootODR, finalEntityType.StructuralProperties());
+            var rootODR = new ODataResource
+            {
+                TypeName = structuredType.FullTypeName()
+            };
+            AddExamplePrimitiveStructuralProperties(rootODR, structuredType.StructuralProperties());
             resWriter.WriteStart(set);
             for (int i = 0; i < 2; i++)
             {
                 resWriter.WriteStart(rootODR);
-                WriteContainedEntities(resWriter,
-                    finalEntityType.DeclaredNavigationProperties().Where(p => p.ContainsTarget));
-                WriteContainedEntities(resWriter,
-                    finalEntityType.DeclaredStructuralProperties().Where(p => p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Complex));
+                WriteContainedResources(resWriter,
+                    structuredType.NavigationProperties().Where(p => p.ContainsTarget));
+                WriteContainedResources(resWriter,
+                    structuredType.StructuralProperties().Where(p =>
+                        p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Complex));
                 WriteReferenceBindings(resWriter,
-                    finalEntityType.DeclaredNavigationProperties().Where(p => !p.ContainsTarget));
+                    structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
                 resWriter.WriteEnd();
             }
 
@@ -172,7 +202,7 @@ namespace ODataExampleGen
             // TODO
         }
 
-        private static void WriteContainedEntities(
+        private static void WriteContainedResources(
             ODataWriter resWriter,
             IEnumerable<IEdmProperty> properties)
         {
@@ -180,16 +210,36 @@ namespace ODataExampleGen
             {
                 bool isCollection = navProp.Type.IsCollection();
                 resWriter.WriteStart(new ODataNestedResourceInfo { Name = navProp.Name, IsCollection = isCollection });
+                IEdmStructuredType propertyType = navProp.Type.Definition.AsElementType() as IEdmStructuredType;
+                propertyType = ChooseDerivedStructuralTypeIfAny(propertyType, navProp.Name);
                 if (!isCollection)
                 {
-                    WriteResource(resWriter, navProp);
+                    WriteResource(resWriter, propertyType);
                 }
                 else
                 {
-                    WriteResourceSet(resWriter, navProp);
+                    WriteResourceSet(resWriter, propertyType);
                 }
                 resWriter.WriteEnd();
             }
+        }
+
+        private static IEdmStructuredType ChooseDerivedStructuralTypeIfAny(IEdmStructuredType propertyType, string propertyName)
+        {
+            var potentialTypes = Model.FindAllDerivedTypes(propertyType).ToList();
+            if (potentialTypes.Count > 0)
+            {
+                // Must pick a type.
+                potentialTypes.Add(propertyType);
+
+                if (!ChosenTypes.TryGetValue(propertyName, out propertyType))
+                {
+                    var concreteTypes = potentialTypes.Where(t => !t.IsAbstract).ToList();
+                    propertyType = concreteTypes[Random.Next(concreteTypes.Count)];
+                }
+            }
+
+            return propertyType;
         }
 
         private static void AddExamplePrimitiveStructuralProperties(
@@ -249,7 +299,7 @@ namespace ODataExampleGen
                 EdmPrimitiveTypeKind.Int32 => 3,
                 EdmPrimitiveTypeKind.Int64 => 3,
                 EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(6.0),
-                EdmPrimitiveTypeKind.String => $"A {p.Name}",
+                EdmPrimitiveTypeKind.String => $"A sample {p.Name}",
                 _ => throw new InvalidOperationException("Unknown primitive type."),
 
             };
@@ -270,7 +320,7 @@ namespace ODataExampleGen
                 EdmPrimitiveTypeKind.Int32 => new object[]{3, 4},
                 EdmPrimitiveTypeKind.Int64 => new object[]{3, 4},
                 EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(6.0), TimeSpan.FromHours(4.0)},
-                EdmPrimitiveTypeKind.String => new object[]{$"A {p.Name}", $"Another {p.Name}"},
+                EdmPrimitiveTypeKind.String => new object[]{$"A sample of {p.Name}", $"Another sample of {p.Name}"},
                 _ => throw new InvalidOperationException("Unknown primitive type."),
             }};
         }
