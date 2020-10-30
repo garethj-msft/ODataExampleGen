@@ -168,11 +168,15 @@ namespace ODataExampleGen
         /// </summary>
         private static string PrettyPrint(MemoryStream stream)
         {
+            var skipProperties = new[] {"@odata.context", "id"};
+
             using JsonDocument doc = JsonDocument.Parse(stream.ToArray(),
                 new JsonDocumentOptions
                     {AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip, MaxDepth = 2000});
             var nodes = doc.RootElement.EnumerateObject()
-                .Where(e => !e.Name.Equals("@odata.context", StringComparison.OrdinalIgnoreCase));
+                .Where(e => !skipProperties.Contains(e.Name, StringComparer.OrdinalIgnoreCase));
+
+            // TODO: Recursively traverse the subnodes removing those too, then traverse doing the write.
 
             using var outStream = new MemoryStream();
             using (var outWriter = new Utf8JsonWriter(outStream, new JsonWriterOptions {Indented = true}))
@@ -183,7 +187,6 @@ namespace ODataExampleGen
                     node.WriteTo(outWriter);
                 }
                 outWriter.WriteEndObject();
-                // doc.WriteTo(outWriter);
             }
 
             outStream.Flush();
@@ -239,6 +242,8 @@ namespace ODataExampleGen
             ODataWriter resWriter,
             IEnumerable<IEdmNavigationProperty> properties)
         {
+            properties = properties.FilterComputed<IEdmNavigationProperty>(Model);
+
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
             // to find the necessary nav prop bindings, we need to look under the root container (es or singleton) that the call is being made to.
             IEdmNavigationSource bindingsHost = Model.FindDeclaredNavigationSource(Path.FirstSegment.Identifier);
@@ -323,6 +328,8 @@ namespace ODataExampleGen
             ODataWriter resWriter,
             IEnumerable<IEdmProperty> properties)
         {
+            properties = properties.FilterComputed<IEdmProperty>(Model);
+
             foreach (IEdmProperty navProp in properties)
             {
                 bool isCollection = navProp.Type.IsCollection();
@@ -363,6 +370,7 @@ namespace ODataExampleGen
             ODataResource structuralResource,
             IEnumerable<IEdmStructuralProperty> properties)
         {
+            properties = properties.FilterComputed<IEdmStructuralProperty>(Model);
             List<ODataProperty> odataProps = new List<ODataProperty>(
             properties.Where(p=> p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex).Select(p => GetExamplePrimitiveProperty(p)));
 
