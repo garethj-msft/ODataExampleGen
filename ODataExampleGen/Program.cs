@@ -64,37 +64,9 @@ namespace ODataExampleGen
                 return 1;
             }
 
-            foreach (string optionPair in options.PropertyTypePairs)
-            {
-                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
-                if (pairTerms.Length != 2)
-                {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:typeName'.");
-                    return 1;
-                }
-
-                IEdmType declared = null;
-                foreach (var aNamespace in Model.DeclaredNamespaces)
-                {
-                    string fqtn = $"{aNamespace}.{pairTerms[1]}";
-                    declared = Model.FindDeclaredType(fqtn);
-                    if (declared != null)
-                    {
-                        break;
-                    }
-                }
-
-                if (declared == null)
-                {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, typename '{pairTerms[1]}' not found in model.");
-                    return 1;
-                }
-
-                ChosenTypes[pairTerms[0]] = (IEdmStructuredType)declared;
-            }
-
             try
             {
+                PopulateChosenTypes(options);
                 MemoryStream stream = new MemoryStream();
                 ContainerBuilder cb = new ContainerBuilder();
                 cb.AddDefaultODataServices();
@@ -151,6 +123,44 @@ namespace ODataExampleGen
             {
                 return 1;
             }
+        }
+
+        private static void PopulateChosenTypes(ProgramOptions options)
+        {
+            foreach (string optionPair in options.PropertyTypePairs)
+            {
+                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                if (pairTerms.Length != 2)
+                {
+                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:typeName'.");
+                    throw new InvalidOperationException();
+                }
+
+                var declared = FindQualifiedTypeByName(pairTerms[1]);
+
+                if (declared == null)
+                {
+                    Console.WriteLine($"Option '{optionPair}' is malformed, typename '{pairTerms[1]}' not found in model.");
+                    throw new InvalidOperationException();
+                }
+
+                ChosenTypes[pairTerms[0]] = (IEdmStructuredType) declared;
+            }
+        }
+
+        private static IEdmType FindQualifiedTypeByName(string typeName)
+        {
+            IEdmType declared = null;
+            foreach (var aNamespace in Model.DeclaredNamespaces)
+            {
+                declared = Model.FindDeclaredType($"{aNamespace}.{typeName}");
+                if (declared != null)
+                {
+                    break;
+                }
+            }
+
+            return declared;
         }
 
         private static string PrettyPrint(MemoryStream stream)
@@ -383,16 +393,17 @@ namespace ODataExampleGen
             return ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
             {
                 EdmPrimitiveTypeKind.Boolean => true,
-                EdmPrimitiveTypeKind.Byte =>  2,
+                EdmPrimitiveTypeKind.Byte =>  Random.Next(10),
                 EdmPrimitiveTypeKind.Date => new Date(DateTimeOffset.UtcNow.Year, DateTimeOffset.UtcNow.Month, DateTimeOffset.UtcNow.Day),
                 EdmPrimitiveTypeKind.DateTimeOffset =>DateTimeOffset.UtcNow,
-                EdmPrimitiveTypeKind.Decimal => 5.0,
-                EdmPrimitiveTypeKind.Single => 5.0,
-                EdmPrimitiveTypeKind.Double => 5.0,
-                EdmPrimitiveTypeKind.Int16 => 3,
-                EdmPrimitiveTypeKind.Int32 => 3,
-                EdmPrimitiveTypeKind.Int64 => 3,
-                EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(6.0),
+                EdmPrimitiveTypeKind.Decimal => NextDouble(10.0),
+                EdmPrimitiveTypeKind.Single => NextDouble(10.0),
+                EdmPrimitiveTypeKind.Double => NextDouble(10.0),
+                EdmPrimitiveTypeKind.Int16 => Random.Next(10),
+                EdmPrimitiveTypeKind.Int32 => Random.Next(10),
+                EdmPrimitiveTypeKind.Int64 => Random.Next(10),
+                EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(NextDouble(10.0)),
+                EdmPrimitiveTypeKind.String when p.Name.Equals("id", StringComparison.OrdinalIgnoreCase) => $"id{MonotonicId++}",
                 EdmPrimitiveTypeKind.String => $"A sample {p.Name}",
                 _ => throw new InvalidOperationException("Unknown primitive type."),
 
@@ -404,19 +415,24 @@ namespace ODataExampleGen
             return new ODataCollectionValue {Items = ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
             {
                 EdmPrimitiveTypeKind.Boolean => new object[]{ true, false}.AsEnumerable(),
-                EdmPrimitiveTypeKind.Byte =>  new object[]{2, 3},
+                EdmPrimitiveTypeKind.Byte =>  new object[]{Random.Next(10), Random.Next(10)},
                 EdmPrimitiveTypeKind.Date => new object[]{ new Date(now.Year, now.Month, now.Day), new Date(now.Year, now.Month, now.Day)},
                 EdmPrimitiveTypeKind.DateTimeOffset =>new object[]{now, now},
-                EdmPrimitiveTypeKind.Decimal => new object[]{5.0, 6.0},
-                EdmPrimitiveTypeKind.Single => new object[]{5.0, 6.0},
-                EdmPrimitiveTypeKind.Double => new object[]{5.0, 6.0},
-                EdmPrimitiveTypeKind.Int16 => new object[]{3, 4},
-                EdmPrimitiveTypeKind.Int32 => new object[]{3, 4},
-                EdmPrimitiveTypeKind.Int64 => new object[]{3, 4},
-                EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(6.0), TimeSpan.FromHours(4.0)},
+                EdmPrimitiveTypeKind.Decimal => new object[]{NextDouble(10.0), NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Single => new object[]{NextDouble(10.0), NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Double => new object[]{NextDouble(10.0), NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Int16 => new object[]{Random.Next(10), Random.Next(10)},
+                EdmPrimitiveTypeKind.Int32 => new object[]{Random.Next(10), Random.Next(10)},
+                EdmPrimitiveTypeKind.Int64 => new object[]{Random.Next(10), Random.Next(10)},
+                EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(NextDouble(10.0)), TimeSpan.FromHours(NextDouble(10.0))},
                 EdmPrimitiveTypeKind.String => new object[]{$"A sample of {p.Name}", $"Another sample of {p.Name}"},
                 _ => throw new InvalidOperationException("Unknown primitive type."),
             }};
+        }
+
+        private static double NextDouble(double maxValue)
+        {
+            return Random.NextDouble() * maxValue;
         }
     }
 }
