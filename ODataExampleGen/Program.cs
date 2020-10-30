@@ -184,7 +184,7 @@ namespace ODataExampleGen
                     p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Complex));
             WriteReferenceBindings(resWriter,
                 structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
-            resWriter.WriteEnd();
+            resWriter.WriteEnd(); // ODataResource
         }
 
         private static void WriteResourceSet(ODataWriter resWriter, IEdmStructuredType structuredType)
@@ -206,10 +206,10 @@ namespace ODataExampleGen
                         p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Complex));
                 WriteReferenceBindings(resWriter,
                     structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
-                resWriter.WriteEnd();
+                resWriter.WriteEnd(); // ODataResource
             }
 
-            resWriter.WriteEnd();
+            resWriter.WriteEnd(); // ODataResourceSet
         }
 
         private static void WriteReferenceBindings(
@@ -314,7 +314,7 @@ namespace ODataExampleGen
                 {
                     WriteResourceSet(resWriter, propertyType);
                 }
-                resWriter.WriteEnd();
+                resWriter.WriteEnd(); // ODataNestedResourceInfo
             }
         }
 
