@@ -163,15 +163,27 @@ namespace ODataExampleGen
             return declared;
         }
 
+        /// <summary>
+        /// Get a tidied up string representation of the raw OData bytes.
+        /// </summary>
         private static string PrettyPrint(MemoryStream stream)
         {
-            JsonDocument doc = JsonDocument.Parse(stream.ToArray(),
+            using JsonDocument doc = JsonDocument.Parse(stream.ToArray(),
                 new JsonDocumentOptions
                     {AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip, MaxDepth = 2000});
+            var nodes = doc.RootElement.EnumerateObject()
+                .Where(e => !e.Name.Equals("@odata.context", StringComparison.OrdinalIgnoreCase));
+
             using var outStream = new MemoryStream();
             using (var outWriter = new Utf8JsonWriter(outStream, new JsonWriterOptions {Indented = true}))
             {
-                doc.WriteTo(outWriter);
+                outWriter.WriteStartObject();
+                foreach (var node in nodes)
+                {
+                    node.WriteTo(outWriter);
+                }
+                outWriter.WriteEndObject();
+                // doc.WriteTo(outWriter);
             }
 
             outStream.Flush();
@@ -183,7 +195,8 @@ namespace ODataExampleGen
         {
             var rootODR = new ODataResource
             {
-                TypeName = structuredType.FullTypeName()
+                TypeName = structuredType.FullTypeName(),
+                TypeAnnotation = new ODataTypeAnnotation(structuredType.FullTypeName())
             };
             AddExamplePrimitiveStructuralProperties(rootODR, structuredType.StructuralProperties());
             resWriter.WriteStart(rootODR);
