@@ -23,5 +23,9 @@
         [Option('e', "enumValue", Required = false,
             HelpText = "Property:EnumValue pairs for resolving choices in enum property values.")]
         public IEnumerable<string> EnumValuePairs { get; set; }
+
+        [Option('r', "primitiveValue", Required = false,
+            HelpText = "Property:PrimitiveValue pairs for resolving choices in primitive property values.")]
+        public IEnumerable<string> PrimitiveValuePairs { get; set; }
     }
 }

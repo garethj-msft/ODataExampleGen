@@ -5,34 +5,28 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Xml;
+using CommandLine;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
-using Microsoft.OData.Edm.Csdl;
-using Microsoft.OData.Edm.Validation;
 using Microsoft.OData.UriParser;
-using CommandLine;
-using Microsoft.OData.Edm.Vocabularies;
 
 namespace ODataExampleGen
 {
     class Program
     {
-        private static readonly Random Random = new Random();
-
-        private static IEdmModel Model;
-
         private static ProgramOptions Options;
 
-        private static IDictionary<string, IEdmStructuredType> ChosenTypes = new Dictionary<string, IEdmStructuredType>();
+        private static readonly GenerationParameters GenerationParameters;
 
-        private static IDictionary<string, IEdmEnumMember> ChosenEnums = new Dictionary<string, IEdmEnumMember>();
+        private static readonly ValueGenerator ValueGenerator;
 
-        private static ODataPath Path;
+        static Program()
+        {
+            GenerationParameters = new GenerationParameters();
+            ValueGenerator = new ValueGenerator(GenerationParameters);
+        }
 
-        private static int MonotonicId = 1;
-
-        static int Main(string[] args)
+        public static int Main(string[] args)
         {
             int result = Parser.Default.ParseArguments<ProgramOptions>(args).MapResult(RunCommand, _ => 1);
             if (Debugger.IsAttached)
@@ -46,72 +40,56 @@ namespace ODataExampleGen
         private static int RunCommand(ProgramOptions options)
         {
             Options = options;
-            string csdlFileFullPath = options.CsdlFile;
-            string baseUrl = options.BaseUrl;
-            string uriToPost = options.UriToPost;
-            if (!File.Exists(csdlFileFullPath))
+            if (!File.Exists(options.CsdlFile))
             {
-                Console.WriteLine($"Unable to locate csdl file: {csdlFileFullPath}");
-                return 1;
-            }
-
-            var reader = XmlReader.Create(new StringReader(File.ReadAllText(csdlFileFullPath)));
-
-            if (!CsdlReader.TryParse(reader, false, out Model, out var errors))
-            {
-                StringBuilder errorMessages = new StringBuilder();
-                foreach (var error in errors)
-                {
-                    Console.WriteLine(error.ErrorMessage);
-                }
+                Console.WriteLine($"Unable to locate csdl file: {options.CsdlFile}");
                 return 1;
             }
 
             try
             {
+                GenerationParameters.PopulateModel(options.CsdlFile);
+
                 // Process the more complicated options into actionable structures.
-                PopulateChosenTypes(options);
-                PopulateChosenEnums(options);
+                GenerationParameters.PopulateChosenTypes(options);
+                GenerationParameters.PopulateChosenEnums(options);
+                GenerationParameters.PopulateChosenPrimitives(options);
 
                 MemoryStream stream = new MemoryStream();
                 ContainerBuilder cb = new ContainerBuilder();
                 cb.AddDefaultODataServices();
-                ODataSimplifiedOptions option = new ODataSimplifiedOptions
-                {
-                    EnableWritingKeyAsSegment = true,
-                };
 
                 IServiceProvider sp = cb.BuildContainer();
-                InMemoryMessage message = new InMemoryMessage {Stream = stream, Container = sp};
+                var message = new InMemoryMessage {Stream = stream, Container = sp};
                 var settings = new ODataMessageWriterSettings
                 {
                     Validations = ValidationKinds.All
                 };
 
-                ODataFormat format = ODataFormat.Json;
+                var format = ODataFormat.Json;
                 settings.SetContentType(format);
 
-                var serviceRoot = new Uri(baseUrl, UriKind.Absolute);
-                var relativeUrlToParse = uriToPost;
+                var serviceRoot = new Uri(options.BaseUrl, UriKind.Absolute);
+                var relativeUrlToParse = options.UriToPost;
                 ODataUriParser parser =
-                    new ODataUriParser(Model, serviceRoot, new Uri(relativeUrlToParse, UriKind.Relative));
-                Path = parser.ParsePath();
+                    new ODataUriParser(GenerationParameters.Model, serviceRoot, new Uri(relativeUrlToParse, UriKind.Relative));
+                GenerationParameters.Path = parser.ParsePath();
 
                 settings.ODataUri = new ODataUri
                 {
                     ServiceRoot = serviceRoot,
-                    Path = Path,
+                    Path = GenerationParameters.Path,
                 };
 
                 // Get to start point of writer, using path.
-                if (!(Path.LastSegment is NavigationPropertySegment finalNavPropSegment))
+                if (!(GenerationParameters.Path.LastSegment is NavigationPropertySegment finalNavPropSegment))
                 {
                     Console.WriteLine("Path must end in navigation property.");
                     return 1;
                 }
                 else
                 {
-                    ODataMessageWriter writer = new ODataMessageWriter((IODataRequestMessage) message, settings, Model);
+                    var writer = new ODataMessageWriter((IODataRequestMessage) message, settings, GenerationParameters.Model);
 
                     IEdmProperty property = finalNavPropSegment.NavigationProperty;
                     IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
@@ -129,85 +107,6 @@ namespace ODataExampleGen
             {
                 return 1;
             }
-        }
-
-        private static void PopulateChosenTypes(ProgramOptions options)
-        {
-            foreach (string optionPair in options.PropertyTypePairs)
-            {
-                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
-                if (pairTerms.Length != 2)
-                {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:typeName'.");
-                    throw new InvalidOperationException();
-                }
-
-                var declared = FindQualifiedTypeByName(pairTerms[1]);
-
-                if (declared == null)
-                {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, typename '{pairTerms[1]}' not found in model.");
-                    throw new InvalidOperationException();
-                }
-
-                ChosenTypes[pairTerms[0]] = (IEdmStructuredType) declared;
-            }
-        }
-
-        private static void PopulateChosenEnums(ProgramOptions options)
-        {
-            foreach (string optionPair in options.EnumValuePairs)
-            {
-                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
-                if (pairTerms.Length != 2)
-                {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:enumValue'.");
-                    throw new InvalidOperationException();
-                }
-
-                IEdmEnumMember enumMember = FindEnumValueByName(pairTerms[0], pairTerms[1]);
-
-                if (enumMember == null)
-                {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, enum value '{pairTerms[1]}' not found in model.");
-                    throw new InvalidOperationException();
-                }
-
-                ChosenEnums[pairTerms[0]] = enumMember;
-            }
-        }
-
-        private static IEdmEnumMember FindEnumValueByName(string propertyName, string enumValueString)
-        {
-                var members = from s in Model.SchemaElements
-                    where s.SchemaElementKind == EdmSchemaElementKind.TypeDefinition && s is IEdmStructuredType
-                    let t = (IEdmStructuredType) s
-                    let prop1 = t.DeclaredProperties.FirstOrDefault(p =>
-                        p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase) &&
-                        p.Type.IsEnum() &&
-                        p.Type.Definition is IEdmEnumType)
-                    where prop1 != null
-                    let mem1 = ((IEdmEnumType) prop1.Type.Definition).Members.FirstOrDefault(m =>
-                        m.Name.Equals(enumValueString, StringComparison.OrdinalIgnoreCase))
-                    where mem1 != null
-                    select mem1;
-
-                return members.First();
-        }
-
-        private static IEdmType FindQualifiedTypeByName(string typeName)
-        {
-            IEdmType declared = null;
-            foreach (var aNamespace in Model.DeclaredNamespaces)
-            {
-                declared = Model.FindDeclaredType($"{aNamespace}.{typeName}");
-                if (declared != null)
-                {
-                    break;
-                }
-            }
-
-            return declared;
         }
 
         /// <summary>
@@ -243,13 +142,13 @@ namespace ODataExampleGen
 
         private static void WriteResource(ODataWriter resWriter, IEdmStructuredType structuredType)
         {
-            var rootODR = new ODataResource
+            var rootOdr = new ODataResource
             {
                 TypeName = structuredType.FullTypeName(),
                 TypeAnnotation = new ODataTypeAnnotation(structuredType.FullTypeName())
             };
-            AddExamplePrimitiveStructuralProperties(rootODR, structuredType.StructuralProperties());
-            resWriter.WriteStart(rootODR);
+            AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties());
+            resWriter.WriteStart(rootOdr);
             WriteContainedResources(resWriter,
                 structuredType.NavigationProperties().Where(p => p.ContainsTarget));
             WriteContainedResources(resWriter,
@@ -263,15 +162,15 @@ namespace ODataExampleGen
         private static void WriteResourceSet(ODataWriter resWriter, IEdmStructuredType structuredType)
         {
             var set = new ODataResourceSet();
-            var rootODR = new ODataResource
+            var rootOdr = new ODataResource
             {
                 TypeName = structuredType.FullTypeName()
             };
-            AddExamplePrimitiveStructuralProperties(rootODR, structuredType.StructuralProperties());
+            AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties());
             resWriter.WriteStart(set);
             for (int i = 0; i < 2; i++)
             {
-                resWriter.WriteStart(rootODR);
+                resWriter.WriteStart(rootOdr);
                 WriteContainedResources(resWriter,
                     structuredType.NavigationProperties().Where(p => p.ContainsTarget));
                 WriteContainedResources(resWriter,
@@ -289,11 +188,11 @@ namespace ODataExampleGen
             ODataWriter resWriter,
             IEnumerable<IEdmNavigationProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmNavigationProperty>(Model);
+            properties = properties.FilterComputed<IEdmNavigationProperty>(GenerationParameters.Model);
 
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
             // to find the necessary nav prop bindings, we need to look under the root container (es or singleton) that the call is being made to.
-            IEdmNavigationSource bindingsHost = Model.FindDeclaredNavigationSource(Path.FirstSegment.Identifier);
+            IEdmNavigationSource bindingsHost = GenerationParameters.Model.FindDeclaredNavigationSource(GenerationParameters.Path.FirstSegment.Identifier);
 
             foreach (IEdmNavigationProperty navProp in properties)
             {
@@ -310,7 +209,7 @@ namespace ODataExampleGen
 
                 for (int i = 0; i < (navProp.Type.IsCollection() ? 2 : 1); i++)
                 {
-                    var link = ConstructEntityReferenceLink(binding, ref MonotonicId);
+                    var link = ConstructEntityReferenceLink(binding);
                     resWriter.WriteEntityReferenceLink(link);
                 }
 
@@ -322,13 +221,12 @@ namespace ODataExampleGen
         /// Create a reference link using the target of the binding to create the Url.
         /// </summary>
         private static ODataEntityReferenceLink ConstructEntityReferenceLink(
-            IEdmNavigationPropertyBinding binding,
-            ref int idCount)
+            IEdmNavigationPropertyBinding binding)
         {
             string[] segmentsList = binding.Target.Path.PathSegments.ToArray();
 
             // Walk along the path in the target of the binding.
-            IEdmNavigationSource rootTargetElement = Model.FindDeclaredNavigationSource(binding.Target.Path.PathSegments.First());
+            IEdmNavigationSource rootTargetElement = GenerationParameters.Model.FindDeclaredNavigationSource(binding.Target.Path.PathSegments.First());
 
             IEdmType AdvanceCursor(IEdmType cursor, int currentSegment)
             {
@@ -360,7 +258,7 @@ namespace ODataExampleGen
                 uriBuilder.Append($"/{segmentsList[segment]}");
                 if (targetCursor is IEdmCollectionType)
                 {
-                    uriBuilder.Append($"/id{idCount++}");
+                    uriBuilder.Append($"/id{ValueGenerator.MonotonicId++}");
                 }
             }
 
@@ -375,7 +273,7 @@ namespace ODataExampleGen
             ODataWriter resWriter,
             IEnumerable<IEdmProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmProperty>(Model);
+            properties = properties.FilterComputed<IEdmProperty>(GenerationParameters.Model);
 
             foreach (IEdmProperty navProp in properties)
             {
@@ -397,16 +295,16 @@ namespace ODataExampleGen
 
         private static IEdmStructuredType ChooseDerivedStructuralTypeIfAny(IEdmStructuredType propertyType, string propertyName)
         {
-            var potentialTypes = Model.FindAllDerivedTypes(propertyType).ToList();
+            var potentialTypes = GenerationParameters.Model.FindAllDerivedTypes(propertyType).ToList();
             if (potentialTypes.Count > 0)
             {
                 // Must pick a type.
                 potentialTypes.Add(propertyType);
 
-                if (!ChosenTypes.TryGetValue(propertyName, out propertyType))
+                if (!GenerationParameters.ChosenTypes.TryGetValue(propertyName, out propertyType))
                 {
                     var concreteTypes = potentialTypes.Where(t => !t.IsAbstract).ToList();
-                    propertyType = concreteTypes[Random.Next(concreteTypes.Count)];
+                    propertyType = concreteTypes[ValueGenerator.Random.Next(concreteTypes.Count)];
                 }
             }
 
@@ -417,98 +315,11 @@ namespace ODataExampleGen
             ODataResource structuralResource,
             IEnumerable<IEdmStructuralProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmStructuralProperty>(Model);
+            properties = properties.FilterComputed<IEdmStructuralProperty>(GenerationParameters.Model);
             List<ODataProperty> odataProps = new List<ODataProperty>(
-            properties.Where(p=> p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex).Select(p => GetExamplePrimitiveProperty(p)));
+            properties.Where(p=> p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex).Select(p => ValueGenerator.GetExamplePrimitiveProperty(p)));
 
             structuralResource.Properties = odataProps;
-        }
-
-        private static ODataProperty GetExamplePrimitiveProperty(IEdmStructuralProperty p)
-        {
-            if (p.Type.IsEnum())
-            {
-                string member = null;
-                if (ChosenEnums.TryGetValue(p.Name, out IEdmEnumMember enumMember))
-                {
-                    member = enumMember.Name;
-                }
-                else
-                {
-                    var enumType = (IEdmEnumType) p.Type.Definition;
-                    var usefulMembers = enumType.Members
-                        .Where(m => !m.Name.Equals("unknownFutureValue", StringComparison.OrdinalIgnoreCase))
-                        .Select(m => m.Name).ToList();
-                    member = usefulMembers[Random.Next(usefulMembers.Count)];
-                }
-
-                return new ODataProperty
-                    {Name = p.Name, Value = new ODataEnumValue(member)};
-            }
-            else
-            {
-                return new ODataProperty
-                    {Name = p.Name, PrimitiveTypeKind = p.Type.PrimitiveKind(), Value = GetExampleStructuralValue(p)};
-            }
-        }
-
-        private static object GetExampleStructuralValue(IEdmStructuralProperty p)
-        {
-            if (p.Type.IsCollection())
-            {
-                return GetExamplePrimitiveValueArray(p);
-            }
-            else
-            {
-                return GetExampleScalarPrimitiveValue(p);
-            }
-        }
-
-        private static object GetExampleScalarPrimitiveValue(IEdmStructuralProperty p)
-        {
-            return ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
-            {
-                EdmPrimitiveTypeKind.Boolean => true,
-                EdmPrimitiveTypeKind.Byte =>  Random.Next(10),
-                EdmPrimitiveTypeKind.Date => new Date(DateTimeOffset.UtcNow.Year, DateTimeOffset.UtcNow.Month, DateTimeOffset.UtcNow.Day),
-                EdmPrimitiveTypeKind.DateTimeOffset =>DateTimeOffset.UtcNow,
-                EdmPrimitiveTypeKind.Decimal => NextDouble(10.0),
-                EdmPrimitiveTypeKind.Single => NextDouble(10.0),
-                EdmPrimitiveTypeKind.Double => NextDouble(10.0),
-                EdmPrimitiveTypeKind.Int16 => Random.Next(10),
-                EdmPrimitiveTypeKind.Int32 => Random.Next(10),
-                EdmPrimitiveTypeKind.Int64 => Random.Next(10),
-                EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(NextDouble(10.0)),
-                EdmPrimitiveTypeKind.String when p.Name.Equals("id", StringComparison.OrdinalIgnoreCase) => $"id{MonotonicId++}",
-                EdmPrimitiveTypeKind.String => $"A sample {p.Name}",
-                _ => throw new InvalidOperationException("Unknown primitive type."),
-
-            };
-        }
-        private static object GetExamplePrimitiveValueArray(IEdmStructuralProperty p)
-        {
-            var now = DateTimeOffset.UtcNow;
-            return new ODataCollectionValue {Items = ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
-            {
-                EdmPrimitiveTypeKind.Boolean => new object[]{ true, false}.AsEnumerable(),
-                EdmPrimitiveTypeKind.Byte =>  new object[]{Random.Next(10), Random.Next(10)},
-                EdmPrimitiveTypeKind.Date => new object[]{ new Date(now.Year, now.Month, now.Day), new Date(now.Year, now.Month, now.Day)},
-                EdmPrimitiveTypeKind.DateTimeOffset =>new object[]{now, now},
-                EdmPrimitiveTypeKind.Decimal => new object[]{NextDouble(10.0), NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Single => new object[]{NextDouble(10.0), NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Double => new object[]{NextDouble(10.0), NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Int16 => new object[]{Random.Next(10), Random.Next(10)},
-                EdmPrimitiveTypeKind.Int32 => new object[]{Random.Next(10), Random.Next(10)},
-                EdmPrimitiveTypeKind.Int64 => new object[]{Random.Next(10), Random.Next(10)},
-                EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(NextDouble(10.0)), TimeSpan.FromHours(NextDouble(10.0))},
-                EdmPrimitiveTypeKind.String => new object[]{$"A sample of {p.Name}", $"Another sample of {p.Name}"},
-                _ => throw new InvalidOperationException("Unknown primitive type."),
-            }};
-        }
-
-        private static double NextDouble(double maxValue)
-        {
-            return Random.NextDouble() * maxValue;
         }
     }
 }
