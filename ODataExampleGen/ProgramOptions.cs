@@ -19,5 +19,9 @@
         [Option('p', "propertyType", Required = false,
             HelpText = "Property:Type pairs for resolving choices in the inheritance hierarchy.")]
         public IEnumerable<string> PropertyTypePairs { get; set; }
+
+        [Option('e', "enumValue", Required = false,
+            HelpText = "Property:EnumValue pairs for resolving choices in enum property values.")]
+        public IEnumerable<string> EnumValuePairs { get; set; }
     }
 }

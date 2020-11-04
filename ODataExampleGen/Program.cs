@@ -12,6 +12,7 @@ using Microsoft.OData.Edm.Csdl;
 using Microsoft.OData.Edm.Validation;
 using Microsoft.OData.UriParser;
 using CommandLine;
+using Microsoft.OData.Edm.Vocabularies;
 
 namespace ODataExampleGen
 {
@@ -23,7 +24,9 @@ namespace ODataExampleGen
 
         private static ProgramOptions Options;
 
-        private static Dictionary<string, IEdmStructuredType> ChosenTypes = new Dictionary<string, IEdmStructuredType>();
+        private static IDictionary<string, IEdmStructuredType> ChosenTypes = new Dictionary<string, IEdmStructuredType>();
+
+        private static IDictionary<string, IEdmEnumMember> ChosenEnums = new Dictionary<string, IEdmEnumMember>();
 
         private static ODataPath Path;
 
@@ -66,7 +69,10 @@ namespace ODataExampleGen
 
             try
             {
+                // Process the more complicated options into actionable structures.
                 PopulateChosenTypes(options);
+                PopulateChosenEnums(options);
+
                 MemoryStream stream = new MemoryStream();
                 ContainerBuilder cb = new ContainerBuilder();
                 cb.AddDefaultODataServices();
@@ -146,6 +152,47 @@ namespace ODataExampleGen
 
                 ChosenTypes[pairTerms[0]] = (IEdmStructuredType) declared;
             }
+        }
+
+        private static void PopulateChosenEnums(ProgramOptions options)
+        {
+            foreach (string optionPair in options.EnumValuePairs)
+            {
+                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                if (pairTerms.Length != 2)
+                {
+                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:enumValue'.");
+                    throw new InvalidOperationException();
+                }
+
+                IEdmEnumMember enumMember = FindEnumValueByName(pairTerms[0], pairTerms[1]);
+
+                if (enumMember == null)
+                {
+                    Console.WriteLine($"Option '{optionPair}' is malformed, enum value '{pairTerms[1]}' not found in model.");
+                    throw new InvalidOperationException();
+                }
+
+                ChosenEnums[pairTerms[0]] = enumMember;
+            }
+        }
+
+        private static IEdmEnumMember FindEnumValueByName(string propertyName, string enumValueString)
+        {
+                var members = from s in Model.SchemaElements
+                    where s.SchemaElementKind == EdmSchemaElementKind.TypeDefinition && s is IEdmStructuredType
+                    let t = (IEdmStructuredType) s
+                    let prop1 = t.DeclaredProperties.FirstOrDefault(p =>
+                        p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase) &&
+                        p.Type.IsEnum() &&
+                        p.Type.Definition is IEdmEnumType)
+                    where prop1 != null
+                    let mem1 = ((IEdmEnumType) prop1.Type.Definition).Members.FirstOrDefault(m =>
+                        m.Name.Equals(enumValueString, StringComparison.OrdinalIgnoreCase))
+                    where mem1 != null
+                    select mem1;
+
+                return members.First();
         }
 
         private static IEdmType FindQualifiedTypeByName(string typeName)
@@ -381,11 +428,19 @@ namespace ODataExampleGen
         {
             if (p.Type.IsEnum())
             {
-                var enumType = (IEdmEnumType) p.Type.Definition;
-                var usefulMembers = enumType.Members
-                    .Where(m => !m.Name.Equals("unknownFutureValue", StringComparison.OrdinalIgnoreCase))
-                    .Select(m => m.Name).ToList();
-                var member = usefulMembers[Random.Next(usefulMembers.Count)];
+                string member = null;
+                if (ChosenEnums.TryGetValue(p.Name, out IEdmEnumMember enumMember))
+                {
+                    member = enumMember.Name;
+                }
+                else
+                {
+                    var enumType = (IEdmEnumType) p.Type.Definition;
+                    var usefulMembers = enumType.Members
+                        .Where(m => !m.Name.Equals("unknownFutureValue", StringComparison.OrdinalIgnoreCase))
+                        .Select(m => m.Name).ToList();
+                    member = usefulMembers[Random.Next(usefulMembers.Count)];
+                }
 
                 return new ODataProperty
                     {Name = p.Name, Value = new ODataEnumValue(member)};
