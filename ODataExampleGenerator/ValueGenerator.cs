@@ -5,7 +5,7 @@ using Microsoft.OData.Edm;
 
 namespace ODataExampleGenerator
 {
-    public class ValueGenerator
+    internal class ValueGenerator
     {
         public int MonotonicId { get; set; } = 1;
 

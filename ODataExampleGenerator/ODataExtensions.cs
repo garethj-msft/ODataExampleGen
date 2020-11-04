@@ -6,7 +6,7 @@ using Microsoft.OData.Edm.Vocabularies;
 
 namespace ODataExampleGenerator
 {
-    public static class ODataExtensions
+    internal static class ODataExtensions
     {
         public static IEnumerable<T> FilterComputed<T>(this IEnumerable<IEdmProperty> properties, IEdmModel model)
             where T : IEdmProperty

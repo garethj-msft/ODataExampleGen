@@ -11,7 +11,7 @@ using Microsoft.OData;
 
 namespace ODataExampleGenerator
 {
-    public class InMemoryMessage : IODataRequestMessage, IODataResponseMessage, IContainerProvider, IDisposable
+    internal class InMemoryMessage : IODataRequestMessage, IODataResponseMessage, IContainerProvider, IDisposable
     {
         private readonly Dictionary<string, string> headers = new Dictionary<string, string>();
 
