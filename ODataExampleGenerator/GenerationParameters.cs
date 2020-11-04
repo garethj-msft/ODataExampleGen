@@ -18,8 +18,6 @@ namespace ODataExampleGenerator
 
         public Uri ServiceRoot { get; set; }
 
-        public string UriToPost { get; set; }
-        
         public IDictionary<string, IEdmStructuredType> ChosenTypes { get; } =
             new Dictionary<string, IEdmStructuredType>();
 

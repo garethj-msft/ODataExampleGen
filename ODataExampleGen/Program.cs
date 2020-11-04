@@ -24,8 +24,7 @@
             {
                 var generationParameters = new GenerationParameters
                 {
-                    ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute),
-                    UriToPost = options.UriToPost,
+                    ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute)
                 };
 
                 generationParameters.LoadModel(options.CsdlFile);
@@ -36,7 +35,7 @@
                 ProgramOptionsExtractor.PopulateChosenPrimitives(options, generationParameters);
 
                 var exampleGenerator = new ExampleGenerator(generationParameters);
-                string output = exampleGenerator.CreateExample();
+                string output = exampleGenerator.CreateExample(options.UriToPost);
                 Console.WriteLine(output);
                 return 0;
             }

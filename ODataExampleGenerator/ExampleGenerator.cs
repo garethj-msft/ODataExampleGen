@@ -21,16 +21,16 @@ namespace ODataExampleGenerator
             this.generationParameters = generationParameters;
             this.valueGenerator = new ValueGenerator(generationParameters);
         }
-        public string CreateExample()
+        public string CreateExample(string uriToPost)
         {
-            _ = this.generationParameters.Model ?? throw new InvalidOperationException($"GenerationParameters.Model must be populated before calling {nameof(CreateExample)}.");
-            _ = this.generationParameters.ServiceRoot ?? throw new InvalidOperationException($"GenerationParameters.ServiceRoot must be populated before calling {nameof(CreateExample)}.");
-            _ = this.generationParameters.UriToPost ?? throw new InvalidOperationException($"GenerationParameters.UriToPost must be populated before calling {nameof(CreateExample)}.");
+            _ = this.generationParameters.Model ?? throw new InvalidOperationException($"{nameof(GenerationParameters.Model)} must be populated before calling {nameof(CreateExample)}.");
+            _ = this.generationParameters.ServiceRoot ?? throw new InvalidOperationException($"{nameof(GenerationParameters.ServiceRoot)} must be populated before calling {nameof(CreateExample)}.");
+            _ = uriToPost ?? throw new InvalidOperationException($"{nameof(uriToPost)} must be populated before calling {nameof(CreateExample)}.");
 
             var parser = new ODataUriParser(
                 this.generationParameters.Model,
                 this.generationParameters.ServiceRoot,
-                new Uri(this.generationParameters.UriToPost, UriKind.Relative));
+                new Uri(uriToPost, UriKind.Relative));
             this.path = parser.ParsePath();
 
             MemoryStream stream = new MemoryStream();
