@@ -1,32 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Xml;
 using Microsoft.OData.Edm;
-using Microsoft.OData.Edm.Csdl;
-using Microsoft.OData.Edm.Validation;
-using Microsoft.OData.UriParser;
+using ODataExampleGenerator;
 
 namespace ODataExampleGen
 {
-    public class GenerationParameters
+    /// <summary>
+    /// Utility class to pull values from the command-line options and move them into the GenerationParameters.
+    /// </summary>
+    public static class ProgramOptionsExtractor
     {
-        public IEdmModel Model { get; private set; }
-
-        public IDictionary<string, IEdmStructuredType> ChosenTypes { get; } =
-            new Dictionary<string, IEdmStructuredType>();
-
-        public IDictionary<string, IEdmEnumMember> ChosenEnums { get; } =
-            new Dictionary<string, IEdmEnumMember>();
-
-        public IDictionary<string, string> ChosenPrimitives { get; } =
-            new Dictionary<string, string>();
-
-        public ODataPath Path { get; set; }
-
-        public void PopulateChosenTypes(ProgramOptions options)
+        public static void PopulateChosenTypes(ProgramOptions options, GenerationParameters generationParameters)
         {
             foreach (string optionPair in options.PropertyTypePairs)
             {
@@ -37,7 +21,7 @@ namespace ODataExampleGen
                     throw new InvalidOperationException();
                 }
 
-                var declared = FindQualifiedTypeByName(pairTerms[1]);
+                var declared = FindQualifiedTypeByName(pairTerms[1], generationParameters);
 
                 if (declared == null)
                 {
@@ -45,11 +29,11 @@ namespace ODataExampleGen
                     throw new InvalidOperationException();
                 }
 
-                ChosenTypes[pairTerms[0]] = (IEdmStructuredType) declared;
+                generationParameters.ChosenTypes[pairTerms[0]] = (IEdmStructuredType) declared;
             }
         }
 
-        public void PopulateChosenEnums(ProgramOptions options)
+        public static void PopulateChosenEnums(ProgramOptions options, GenerationParameters generationParameters)
         {
             foreach (string optionPair in options.EnumValuePairs)
             {
@@ -60,7 +44,7 @@ namespace ODataExampleGen
                     throw new InvalidOperationException();
                 }
 
-                IEdmEnumMember enumMember = FindEnumValueByName(pairTerms[0], pairTerms[1]);
+                IEdmEnumMember enumMember = FindEnumValueByName(pairTerms[0], pairTerms[1], generationParameters);
 
                 if (enumMember == null)
                 {
@@ -68,11 +52,11 @@ namespace ODataExampleGen
                     throw new InvalidOperationException();
                 }
 
-                ChosenEnums[pairTerms[0]] = enumMember;
+                generationParameters.ChosenEnums[pairTerms[0]] = enumMember;
             }
         }
 
-        public void PopulateChosenPrimitives(ProgramOptions options)
+        public static void PopulateChosenPrimitives(ProgramOptions options, GenerationParameters generationParameters)
         {
             foreach (string optionPair in options.PrimitiveValuePairs)
             {
@@ -83,13 +67,13 @@ namespace ODataExampleGen
                     throw new InvalidOperationException();
                 }
 
-                ChosenPrimitives[pairTerms[0]] = pairTerms[1];
+                generationParameters.ChosenPrimitives[pairTerms[0]] = pairTerms[1];
             }
         }
 
-        private IEdmEnumMember FindEnumValueByName(string propertyName, string enumValueString)
+        private static IEdmEnumMember FindEnumValueByName(string propertyName, string enumValueString, GenerationParameters generationParameters)
         {
-            var members = from s in this.Model.SchemaElements
+            var members = from s in generationParameters.Model.SchemaElements
                 where s.SchemaElementKind == EdmSchemaElementKind.TypeDefinition && s is IEdmStructuredType
                 let t = (IEdmStructuredType) s
                 let prop1 = t.DeclaredProperties.FirstOrDefault(p =>
@@ -102,15 +86,15 @@ namespace ODataExampleGen
                 where mem1 != null
                 select mem1;
 
-            return members.First();
+            return Enumerable.First(members);
         }
 
-        private IEdmType FindQualifiedTypeByName(string typeName)
+        private static IEdmType FindQualifiedTypeByName(string typeName, GenerationParameters generationParameters)
         {
             IEdmType declared = null;
-            foreach (var aNamespace in this.Model.DeclaredNamespaces)
+            foreach (var aNamespace in generationParameters.Model.DeclaredNamespaces)
             {
-                declared = this.Model.FindDeclaredType($"{aNamespace}.{typeName}");
+                declared = generationParameters.Model.FindDeclaredType($"{aNamespace}.{typeName}");
                 if (declared != null)
                 {
                     break;
@@ -118,27 +102,6 @@ namespace ODataExampleGen
             }
 
             return declared;
-        }
-
-        public void PopulateModel(string csdlFileFullPath)
-        {
-            var reader = XmlReader.Create(new StringReader(File.ReadAllText(csdlFileFullPath)));
-
-            if (CsdlReader.TryParse(reader, false, out IEdmModel model, out IEnumerable<EdmError> errors))
-            {
-                this.Model = model;
-            }
-            else
-            {
-                var errorMessages = new StringBuilder();
-                foreach (var error in errors)
-                {
-                    errorMessages.AppendLine(error.ErrorMessage);
-                }
-
-                throw new InvalidOperationException(
-                    $@"Failed to read model {csdlFileFullPath}.\r\nErrors:\r\n{errorMessages}");
-            }
         }
     }
 }

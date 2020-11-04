@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
 
-namespace ODataExampleGen
+namespace ODataExampleGenerator
 {
     public class ValueGenerator
     {

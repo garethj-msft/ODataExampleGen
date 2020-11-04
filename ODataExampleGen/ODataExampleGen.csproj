@@ -26,4 +26,8 @@
     <Folder Include="Connected Services\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ODataExampleGenerator\ODataExampleGenerator.csproj" />
+  </ItemGroup>
+
 </Project>

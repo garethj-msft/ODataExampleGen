@@ -9,21 +9,22 @@ using CommandLine;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
+using ODataExampleGenerator;
 
 namespace ODataExampleGen
 {
     class Program
     {
-        private static ProgramOptions Options;
+        private static ProgramOptions options;
 
-        private static readonly GenerationParameters GenerationParameters;
+        private static readonly GenerationParameters generationParameters;
 
-        private static readonly ValueGenerator ValueGenerator;
+        private static readonly ValueGenerator valueGenerator;
 
         static Program()
         {
-            GenerationParameters = new GenerationParameters();
-            ValueGenerator = new ValueGenerator(GenerationParameters);
+            generationParameters = new GenerationParameters();
+            valueGenerator = new ValueGenerator(generationParameters);
         }
 
         public static int Main(string[] args)
@@ -39,7 +40,7 @@ namespace ODataExampleGen
 
         private static int RunCommand(ProgramOptions options)
         {
-            Options = options;
+            Program.options = options;
             if (!File.Exists(options.CsdlFile))
             {
                 Console.WriteLine($"Unable to locate csdl file: {options.CsdlFile}");
@@ -48,19 +49,16 @@ namespace ODataExampleGen
 
             try
             {
-                GenerationParameters.PopulateModel(options.CsdlFile);
+                generationParameters.PopulateModel(options.CsdlFile);
 
                 // Process the more complicated options into actionable structures.
-                GenerationParameters.PopulateChosenTypes(options);
-                GenerationParameters.PopulateChosenEnums(options);
-                GenerationParameters.PopulateChosenPrimitives(options);
+                ProgramOptionsExtractor.PopulateChosenTypes(options, generationParameters);
+                ProgramOptionsExtractor.PopulateChosenEnums(options, generationParameters);
+                ProgramOptionsExtractor.PopulateChosenPrimitives(options, generationParameters);
 
                 MemoryStream stream = new MemoryStream();
-                ContainerBuilder cb = new ContainerBuilder();
-                cb.AddDefaultODataServices();
 
-                IServiceProvider sp = cb.BuildContainer();
-                var message = new InMemoryMessage {Stream = stream, Container = sp};
+                var message = new InMemoryMessage {Stream = stream};
                 var settings = new ODataMessageWriterSettings
                 {
                     Validations = ValidationKinds.All
@@ -72,24 +70,24 @@ namespace ODataExampleGen
                 var serviceRoot = new Uri(options.BaseUrl, UriKind.Absolute);
                 var relativeUrlToParse = options.UriToPost;
                 ODataUriParser parser =
-                    new ODataUriParser(GenerationParameters.Model, serviceRoot, new Uri(relativeUrlToParse, UriKind.Relative));
-                GenerationParameters.Path = parser.ParsePath();
+                    new ODataUriParser(generationParameters.Model, serviceRoot, new Uri(relativeUrlToParse, UriKind.Relative));
+                generationParameters.Path = parser.ParsePath();
 
                 settings.ODataUri = new ODataUri
                 {
                     ServiceRoot = serviceRoot,
-                    Path = GenerationParameters.Path,
+                    Path = generationParameters.Path,
                 };
 
                 // Get to start point of writer, using path.
-                if (!(GenerationParameters.Path.LastSegment is NavigationPropertySegment finalNavPropSegment))
+                if (!(generationParameters.Path.LastSegment is NavigationPropertySegment finalNavPropSegment))
                 {
                     Console.WriteLine("Path must end in navigation property.");
                     return 1;
                 }
                 else
                 {
-                    var writer = new ODataMessageWriter((IODataRequestMessage) message, settings, GenerationParameters.Model);
+                    var writer = new ODataMessageWriter((IODataRequestMessage) message, settings, generationParameters.Model);
 
                     IEdmProperty property = finalNavPropSegment.NavigationProperty;
                     IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
@@ -188,11 +186,11 @@ namespace ODataExampleGen
             ODataWriter resWriter,
             IEnumerable<IEdmNavigationProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmNavigationProperty>(GenerationParameters.Model);
+            properties = properties.FilterComputed<IEdmNavigationProperty>(generationParameters.Model);
 
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
             // to find the necessary nav prop bindings, we need to look under the root container (es or singleton) that the call is being made to.
-            IEdmNavigationSource bindingsHost = GenerationParameters.Model.FindDeclaredNavigationSource(GenerationParameters.Path.FirstSegment.Identifier);
+            IEdmNavigationSource bindingsHost = generationParameters.Model.FindDeclaredNavigationSource(generationParameters.Path.FirstSegment.Identifier);
 
             foreach (IEdmNavigationProperty navProp in properties)
             {
@@ -226,7 +224,7 @@ namespace ODataExampleGen
             string[] segmentsList = binding.Target.Path.PathSegments.ToArray();
 
             // Walk along the path in the target of the binding.
-            IEdmNavigationSource rootTargetElement = GenerationParameters.Model.FindDeclaredNavigationSource(binding.Target.Path.PathSegments.First());
+            IEdmNavigationSource rootTargetElement = generationParameters.Model.FindDeclaredNavigationSource(binding.Target.Path.PathSegments.First());
 
             IEdmType AdvanceCursor(IEdmType cursor, int currentSegment)
             {
@@ -249,7 +247,7 @@ namespace ODataExampleGen
             }
 
 
-            var uriBuilder = new StringBuilder(Options.BaseUrl.TrimEnd('/'));
+            var uriBuilder = new StringBuilder(options.BaseUrl.TrimEnd('/'));
 
             // Cursor through the types that make up the binding's target path.
             IEdmType targetCursor = rootTargetElement.Type;
@@ -258,7 +256,7 @@ namespace ODataExampleGen
                 uriBuilder.Append($"/{segmentsList[segment]}");
                 if (targetCursor is IEdmCollectionType)
                 {
-                    uriBuilder.Append($"/id{ValueGenerator.MonotonicId++}");
+                    uriBuilder.Append($"/id{valueGenerator.MonotonicId++}");
                 }
             }
 
@@ -273,7 +271,7 @@ namespace ODataExampleGen
             ODataWriter resWriter,
             IEnumerable<IEdmProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmProperty>(GenerationParameters.Model);
+            properties = properties.FilterComputed<IEdmProperty>(generationParameters.Model);
 
             foreach (IEdmProperty navProp in properties)
             {
@@ -295,16 +293,16 @@ namespace ODataExampleGen
 
         private static IEdmStructuredType ChooseDerivedStructuralTypeIfAny(IEdmStructuredType propertyType, string propertyName)
         {
-            var potentialTypes = GenerationParameters.Model.FindAllDerivedTypes(propertyType).ToList();
+            var potentialTypes = generationParameters.Model.FindAllDerivedTypes(propertyType).ToList();
             if (potentialTypes.Count > 0)
             {
                 // Must pick a type.
                 potentialTypes.Add(propertyType);
 
-                if (!GenerationParameters.ChosenTypes.TryGetValue(propertyName, out propertyType))
+                if (!generationParameters.ChosenTypes.TryGetValue(propertyName, out propertyType))
                 {
                     var concreteTypes = potentialTypes.Where(t => !t.IsAbstract).ToList();
-                    propertyType = concreteTypes[ValueGenerator.Random.Next(concreteTypes.Count)];
+                    propertyType = concreteTypes[valueGenerator.Random.Next(concreteTypes.Count)];
                 }
             }
 
@@ -315,9 +313,9 @@ namespace ODataExampleGen
             ODataResource structuralResource,
             IEnumerable<IEdmStructuralProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmStructuralProperty>(GenerationParameters.Model);
+            properties = properties.FilterComputed<IEdmStructuralProperty>(generationParameters.Model);
             List<ODataProperty> odataProps = new List<ODataProperty>(
-            properties.Where(p=> p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex).Select(p => ValueGenerator.GetExamplePrimitiveProperty(p)));
+            properties.Where(p=> p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex).Select(p => valueGenerator.GetExamplePrimitiveProperty(p)));
 
             structuralResource.Properties = odataProps;
         }
