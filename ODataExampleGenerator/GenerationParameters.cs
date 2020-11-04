@@ -14,9 +14,7 @@ namespace ODataExampleGenerator
 
     public class GenerationParameters
     {
-        public IEdmModel Model { get; private set; }
-
-        public ODataPath Path { get; private set; }
+        public IEdmModel Model { get; set; }
 
         public Uri ServiceRoot { get; set; }
 
@@ -31,7 +29,7 @@ namespace ODataExampleGenerator
         public IDictionary<string, string> ChosenPrimitives { get; } =
             new Dictionary<string, string>();
 
-        public void PopulateModel(string csdlFileFullPath)
+        public void LoadModel(string csdlFileFullPath)
         {
             if (!File.Exists(csdlFileFullPath))
             {
@@ -55,19 +53,6 @@ namespace ODataExampleGenerator
                 throw new InvalidOperationException(
                     $@"Failed to read model {csdlFileFullPath}.\r\nErrors:\r\n{errorMessages}");
             }
-        }
-
-        public void PopulatePath()
-        {
-            _ = this.Model ?? throw new InvalidOperationException($"Model must be populated before calling {nameof(PopulatePath)}.");
-            _ = this.ServiceRoot ?? throw new InvalidOperationException($"ServiceRoot must be populated before calling {nameof(PopulatePath)}.");
-            _ = this.UriToPost ?? throw new InvalidOperationException($"UriToPost must be populated before calling {nameof(PopulatePath)}.");
-
-            var parser = new ODataUriParser(
-                this.Model,
-                this.ServiceRoot,
-                new Uri(this.UriToPost, UriKind.Relative));
-            this.Path = parser.ParsePath();
         }
     }
 }

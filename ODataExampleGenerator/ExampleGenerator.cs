@@ -14,6 +14,7 @@ namespace ODataExampleGenerator
     {
         private readonly GenerationParameters generationParameters;
         private readonly ValueGenerator valueGenerator;
+        private ODataPath path;
 
         public ExampleGenerator(GenerationParameters generationParameters)
         {
@@ -22,6 +23,16 @@ namespace ODataExampleGenerator
         }
         public string CreateExample()
         {
+            _ = this.generationParameters.Model ?? throw new InvalidOperationException($"GenerationParameters.Model must be populated before calling {nameof(CreateExample)}.");
+            _ = this.generationParameters.ServiceRoot ?? throw new InvalidOperationException($"GenerationParameters.ServiceRoot must be populated before calling {nameof(CreateExample)}.");
+            _ = this.generationParameters.UriToPost ?? throw new InvalidOperationException($"GenerationParameters.UriToPost must be populated before calling {nameof(CreateExample)}.");
+
+            var parser = new ODataUriParser(
+                this.generationParameters.Model,
+                this.generationParameters.ServiceRoot,
+                new Uri(this.generationParameters.UriToPost, UriKind.Relative));
+            this.path = parser.ParsePath();
+
             MemoryStream stream = new MemoryStream();
 
             var message = new InMemoryMessage {Stream = stream};
@@ -32,12 +43,12 @@ namespace ODataExampleGenerator
                 ODataUri = new ODataUri
                 {
                     ServiceRoot = this.generationParameters.ServiceRoot,
-                    Path = this.generationParameters.Path
+                    Path = this.path
                 }
             };
 
             // Get to start point of writer, using path.
-            if (!(this.generationParameters.Path.LastSegment is NavigationPropertySegment finalNavPropSegment))
+            if (!(this.path.LastSegment is NavigationPropertySegment finalNavPropSegment))
             {
                 throw new InvalidOperationException("Path must end in navigation property.");
             }
@@ -144,7 +155,7 @@ namespace ODataExampleGenerator
 
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
             // to find the necessary nav prop bindings, we need to look under the root container (es or singleton) that the call is being made to.
-            IEdmNavigationSource bindingsHost = this.generationParameters.Model.FindDeclaredNavigationSource(this.generationParameters.Path.FirstSegment.Identifier);
+            IEdmNavigationSource bindingsHost = this.generationParameters.Model.FindDeclaredNavigationSource(this.path.FirstSegment.Identifier);
 
             foreach (IEdmNavigationProperty navProp in properties)
             {

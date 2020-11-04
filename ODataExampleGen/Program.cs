@@ -1,24 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
-using CommandLine;
-using Microsoft.OData;
-using Microsoft.OData.Edm;
-using Microsoft.OData.UriParser;
-using ODataExampleGenerator;
-
-namespace ODataExampleGen
+﻿namespace ODataExampleGen
 {
+    using System;
+    using System.Diagnostics;
+    using CommandLine;
+    using ODataExampleGenerator;
+
     class Program
     {
-        static Program()
-        {
-        }
-
         public static int Main(string[] args)
         {
             int result = Parser.Default.ParseArguments<ProgramOptions>(args).MapResult(RunCommand, _ => 1);
@@ -40,17 +28,14 @@ namespace ODataExampleGen
                     UriToPost = options.UriToPost,
                 };
 
-                var exampleGenerator = new ExampleGenerator(generationParameters);
-
-                generationParameters.PopulateModel(options.CsdlFile);
-                generationParameters.PopulatePath();
+                generationParameters.LoadModel(options.CsdlFile);
 
                 // Process the more complicated options into actionable structures.
                 ProgramOptionsExtractor.PopulateChosenTypes(options, generationParameters);
                 ProgramOptionsExtractor.PopulateChosenEnums(options, generationParameters);
                 ProgramOptionsExtractor.PopulateChosenPrimitives(options, generationParameters);
 
-
+                var exampleGenerator = new ExampleGenerator(generationParameters);
                 string output = exampleGenerator.CreateExample();
                 Console.WriteLine(output);
                 return 0;
