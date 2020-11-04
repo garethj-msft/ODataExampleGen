@@ -4,12 +4,12 @@
 // </copyright>
 //---------------------------------------------------------------------
 
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using Microsoft.OData;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using Microsoft.OData;
 
-namespace ODataExampleGen
+namespace ODataExampleGenerator
 {
     public class InMemoryMessage : IODataRequestMessage, IODataResponseMessage, IContainerProvider, IDisposable
     {

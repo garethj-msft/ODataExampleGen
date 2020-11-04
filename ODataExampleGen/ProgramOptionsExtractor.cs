@@ -17,16 +17,14 @@ namespace ODataExampleGen
                 var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
                 if (pairTerms.Length != 2)
                 {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:typeName'.");
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'propertyName:typeName'.");
                 }
 
                 var declared = FindQualifiedTypeByName(pairTerms[1], generationParameters);
 
                 if (declared == null)
                 {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, typename '{pairTerms[1]}' not found in model.");
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException($"Option '{optionPair}' is malformed, typename '{pairTerms[1]}' not found in model.");
                 }
 
                 generationParameters.ChosenTypes[pairTerms[0]] = (IEdmStructuredType) declared;
@@ -40,16 +38,14 @@ namespace ODataExampleGen
                 var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
                 if (pairTerms.Length != 2)
                 {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:enumValue'.");
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'propertyName:enumValue'.");
                 }
 
                 IEdmEnumMember enumMember = FindEnumValueByName(pairTerms[0], pairTerms[1], generationParameters);
 
                 if (enumMember == null)
                 {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, enum value '{pairTerms[1]}' not found in model.");
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException($"Option '{optionPair}' is malformed, enum value '{pairTerms[1]}' not found in model.");
                 }
 
                 generationParameters.ChosenEnums[pairTerms[0]] = enumMember;
@@ -63,8 +59,7 @@ namespace ODataExampleGen
                 var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
                 if (pairTerms.Length != 2)
                 {
-                    Console.WriteLine($"Option '{optionPair}' is malformed, must be 'propertyName:primitiveValue'.");
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'propertyName:primitiveValue'.");
                 }
 
                 generationParameters.ChosenPrimitives[pairTerms[0]] = pairTerms[1];
