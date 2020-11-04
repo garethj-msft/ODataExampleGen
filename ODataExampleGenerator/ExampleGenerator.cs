@@ -35,7 +35,7 @@ namespace ODataExampleGenerator
 
             MemoryStream stream = new MemoryStream();
 
-            var message = new InMemoryMessage {Stream = stream};
+            using var message = new InMemoryMessage {Stream = stream};
 
             var settings = new ODataMessageWriterSettings
             {
@@ -54,7 +54,7 @@ namespace ODataExampleGenerator
             }
             else
             {
-                var writer = new ODataMessageWriter((IODataRequestMessage) message, settings, this.generationParameters.Model);
+                using var writer = new ODataMessageWriter((IODataRequestMessage) message, settings, this.generationParameters.Model);
 
                 IEdmProperty property = finalNavPropSegment.NavigationProperty;
                 IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
