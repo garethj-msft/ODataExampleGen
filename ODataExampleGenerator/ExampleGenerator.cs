@@ -21,11 +21,16 @@ namespace ODataExampleGenerator
             this.generationParameters = generationParameters;
             this.valueGenerator = new ValueGenerator(generationParameters);
         }
+
         public string CreateExample(string uriToPost)
         {
-            _ = this.generationParameters.Model ?? throw new InvalidOperationException($"{nameof(GenerationParameters.Model)} must be populated before calling {nameof(CreateExample)}.");
-            _ = this.generationParameters.ServiceRoot ?? throw new InvalidOperationException($"{nameof(GenerationParameters.ServiceRoot)} must be populated before calling {nameof(CreateExample)}.");
-            _ = uriToPost ?? throw new InvalidOperationException($"{nameof(uriToPost)} must be populated before calling {nameof(CreateExample)}.");
+            _ = this.generationParameters.Model ?? throw new InvalidOperationException(
+                $"{nameof(GenerationParameters.Model)} must be populated before calling {nameof(CreateExample)}.");
+            _ = this.generationParameters.ServiceRoot ?? throw new InvalidOperationException(
+                $"{nameof(GenerationParameters.ServiceRoot)} must be populated before calling {nameof(CreateExample)}.");
+            _ = uriToPost ??
+                throw new InvalidOperationException(
+                    $"{nameof(uriToPost)} must be populated before calling {nameof(CreateExample)}.");
 
             var parser = new ODataUriParser(
                 this.generationParameters.Model,
@@ -54,7 +59,10 @@ namespace ODataExampleGenerator
             }
             else
             {
-                using var writer = new ODataMessageWriter((IODataRequestMessage) message, settings, this.generationParameters.Model);
+                using var writer = new ODataMessageWriter(
+                    (IODataRequestMessage) message,
+                    settings,
+                    this.generationParameters.Model);
 
                 IEdmProperty property = finalNavPropSegment.NavigationProperty;
                 IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
@@ -91,6 +99,7 @@ namespace ODataExampleGenerator
                 {
                     node.WriteTo(outWriter);
                 }
+
                 outWriter.WriteEndObject();
             }
 
@@ -108,7 +117,9 @@ namespace ODataExampleGenerator
                 TypeName = structuredType.FullTypeName(),
                 TypeAnnotation = new ODataTypeAnnotation(structuredType.FullTypeName())
             };
-            this.AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties());
+
+            this.AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties(),
+                structuredType);
             resWriter.WriteStart(rootOdr);
             this.WriteContainedResources(resWriter,
                 structuredType.NavigationProperties().Where(p => p.ContainsTarget));
@@ -129,7 +140,8 @@ namespace ODataExampleGenerator
             {
                 TypeName = structuredType.FullTypeName()
             };
-            this.AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties());
+            this.AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties(),
+                structuredType);
             resWriter.WriteStart(set);
             for (int i = 0; i < 2; i++)
             {
@@ -155,7 +167,8 @@ namespace ODataExampleGenerator
 
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
             // to find the necessary nav prop bindings, we need to look under the root container (es or singleton) that the call is being made to.
-            IEdmNavigationSource bindingsHost = this.generationParameters.Model.FindDeclaredNavigationSource(this.path.FirstSegment.Identifier);
+            IEdmNavigationSource bindingsHost =
+                this.generationParameters.Model.FindDeclaredNavigationSource(this.path.FirstSegment.Identifier);
 
             foreach (IEdmNavigationProperty navProp in properties)
             {
@@ -188,7 +201,8 @@ namespace ODataExampleGenerator
             string[] segmentsList = binding.Target.Path.PathSegments.ToArray();
 
             // Walk along the path in the target of the binding.
-            IEdmNavigationSource rootTargetElement = this.generationParameters.Model.FindDeclaredNavigationSource(binding.Target.Path.PathSegments.First());
+            IEdmNavigationSource rootTargetElement =
+                this.generationParameters.Model.FindDeclaredNavigationSource(binding.Target.Path.PathSegments.First());
 
             IEdmType AdvanceCursor(IEdmType cursor, int currentSegment)
             {
@@ -200,10 +214,12 @@ namespace ODataExampleGenerator
 
                 var structure = cursor.AsElementType() as IEdmStructuredType;
                 IEdmNavigationProperty nextSegmentProp = structure.NavigationProperties()
-                    .FirstOrDefault(p => p.Name.Equals(segmentsList[currentSegment + 1], StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefault(p =>
+                        p.Name.Equals(segmentsList[currentSegment + 1], StringComparison.OrdinalIgnoreCase));
                 if (nextSegmentProp == null)
                 {
-                    throw new InvalidOperationException($"Error: bindingTarget '{binding.Target.Path.Path}' for {binding.NavigationProperty.Name} is erroneous");
+                    throw new InvalidOperationException(
+                        $"Error: bindingTarget '{binding.Target.Path.Path}' for {binding.NavigationProperty.Name} is erroneous");
                 }
 
                 return nextSegmentProp.Type.Definition;
@@ -238,7 +254,7 @@ namespace ODataExampleGenerator
             foreach (IEdmProperty navProp in properties)
             {
                 bool isCollection = navProp.Type.IsCollection();
-                resWriter.WriteStart(new ODataNestedResourceInfo { Name = navProp.Name, IsCollection = isCollection });
+                resWriter.WriteStart(new ODataNestedResourceInfo {Name = navProp.Name, IsCollection = isCollection});
                 IEdmStructuredType propertyType = navProp.Type.Definition.AsElementType() as IEdmStructuredType;
                 propertyType = this.ChooseDerivedStructuralTypeIfAny(propertyType, navProp.Name);
                 if (!isCollection)
@@ -249,11 +265,14 @@ namespace ODataExampleGenerator
                 {
                     this.WriteResourceSet(resWriter, propertyType);
                 }
+
                 resWriter.WriteEnd(); // ODataNestedResourceInfo
             }
         }
 
-        private IEdmStructuredType ChooseDerivedStructuralTypeIfAny(IEdmStructuredType propertyType, string propertyName)
+        private IEdmStructuredType ChooseDerivedStructuralTypeIfAny(
+            IEdmStructuredType propertyType,
+            string propertyName)
         {
             var potentialTypes = this.generationParameters.Model.FindAllDerivedTypes(propertyType).ToList();
             if (potentialTypes.Count > 0)
@@ -273,11 +292,14 @@ namespace ODataExampleGenerator
 
         private void AddExamplePrimitiveStructuralProperties(
             ODataResource structuralResource,
-            IEnumerable<IEdmStructuralProperty> properties)
+            IEnumerable<IEdmStructuralProperty> properties,
+            IEdmStructuredType hostType)
         {
-            properties = properties.FilterComputed<IEdmStructuralProperty>(this.generationParameters.Model);
+            properties = properties.Where(p => p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex)
+                .FilterComputed<IEdmStructuralProperty>(this.generationParameters.Model);
+
             List<ODataProperty> odataProps = new List<ODataProperty>(
-                properties.Where(p=> p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex).Select(p => this.valueGenerator.GetExamplePrimitiveProperty(p)));
+                properties.Select(p => this.valueGenerator.GetExamplePrimitiveProperty(hostType, p)));
 
             structuralResource.Properties = odataProps;
         }

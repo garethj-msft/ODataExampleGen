@@ -17,7 +17,9 @@ namespace ODataExampleGenerator
         {
             this.GenerationParameters = generationParameters;
         }
-        public ODataProperty GetExamplePrimitiveProperty(IEdmStructuralProperty p)
+        public ODataProperty GetExamplePrimitiveProperty(
+            IEdmStructuredType hostType,
+            IEdmStructuralProperty p)
         {
             if (p.Type.IsEnum())
             {
