@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <StartupObject>ODataExampleGen.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
