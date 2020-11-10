@@ -89,7 +89,7 @@ namespace ODataExampleGenerator
                 EdmPrimitiveTypeKind.Int64 => this.Random.Next(10),
                 EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(this.NextDouble(10.0)),
                 EdmPrimitiveTypeKind.String when p.Name.Equals("id", StringComparison.OrdinalIgnoreCase) => $"id{this.MonotonicId++}",
-                EdmPrimitiveTypeKind.String => $"An example {p.Name}",
+                EdmPrimitiveTypeKind.String => $"{p.Name}-value",
                 _ => throw new InvalidOperationException("Unknown primitive type."),
 
             };
@@ -111,7 +111,7 @@ namespace ODataExampleGenerator
                 EdmPrimitiveTypeKind.Int32 => new object[]{this.Random.Next(10), this.Random.Next(10)},
                 EdmPrimitiveTypeKind.Int64 => new object[]{this.Random.Next(10), this.Random.Next(10)},
                 EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(this.NextDouble(10.0)), TimeSpan.FromHours(this.NextDouble(10.0))},
-                EdmPrimitiveTypeKind.String => new object[]{$"An example {p.Name}", $"Another example {p.Name}"},
+                EdmPrimitiveTypeKind.String => new object[]{$"{p.Name}-value1", $"{p.Name}-value2"},
                 _ => throw new InvalidOperationException("Unknown primitive type."),
             }};
         }
