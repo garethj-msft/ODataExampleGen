@@ -21,9 +21,6 @@ namespace ODataExampleGenerator
         public IDictionary<string, IEdmStructuredType> ChosenTypes { get; } =
             new Dictionary<string, IEdmStructuredType>();
 
-        public IDictionary<string, IEdmEnumMember> ChosenEnums { get; } =
-            new Dictionary<string, IEdmEnumMember>();
-
         public IDictionary<string, string> ChosenPrimitives { get; } =
             new Dictionary<string, string>();
 

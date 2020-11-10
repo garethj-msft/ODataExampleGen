@@ -48,7 +48,7 @@ namespace ODataExampleGen
                     throw new InvalidOperationException($"Option '{optionPair}' is malformed, enum value '{pairTerms[1]}' not found in model.");
                 }
 
-                generationParameters.ChosenEnums[pairTerms[0]] = enumMember;
+                generationParameters.ChosenPrimitives[pairTerms[0]] = enumMember.Name;
             }
         }
 

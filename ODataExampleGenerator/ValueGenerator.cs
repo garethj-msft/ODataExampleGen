@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
@@ -21,57 +22,55 @@ namespace ODataExampleGenerator
             IEdmStructuredType hostType,
             IEdmStructuralProperty p)
         {
-            if (p.Type.IsEnum())
-            {
-                string member;
-                if (this.GenerationParameters.ChosenEnums.TryGetValue(p.Name, out IEdmEnumMember enumMember))
-                {
-                    member = enumMember.Name;
-                }
-                else
-                {
-                    var enumType = (IEdmEnumType) p.Type.Definition;
-                    var usefulMembers = enumType.Members
-                        .Where(m => !m.Name.Equals("unknownFutureValue", StringComparison.OrdinalIgnoreCase))
-                        .Select(m => m.Name).ToList();
-                    member = usefulMembers[this.Random.Next(usefulMembers.Count)];
-                }
+            bool isChosenValue = this.GenerationParameters.ChosenPrimitives.TryGetValue(p.Name, out string primitiveString);
+            object primitive = !isChosenValue ? this.GetExampleStructuralValue(p) : this.GetSuppliedStructuralValue(p, primitiveString);
+            var returnProp = new ODataProperty {Name = p.Name, Value = primitive};
 
-                return new ODataProperty
-                    {Name = p.Name, Value = new ODataEnumValue(member)};
-            }
-            else
+            if (!p.Type.IsEnum())
             {
-                object primitive = this.GenerationParameters.ChosenPrimitives.TryGetValue(p.Name, out string primitiveString) ? this.GetSuppliedStructuralValue(p, primitiveString) : this.GetExampleStructuralValue(p);
-                var returnProp = new ODataProperty
-                    {Name = p.Name, PrimitiveTypeKind = p.Type.PrimitiveKind(), Value = primitive};
-                return returnProp;
+                returnProp.PrimitiveTypeKind = p.Type.PrimitiveKind();
             }
+            return returnProp;
         }
 
         private object GetExampleStructuralValue(IEdmStructuralProperty p)
         {
             if (p.Type.IsCollection())
             {
-                return this.GetExamplePrimitiveValueArray(p);
+                if (p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Enum)
+                {
+                    string firstEnumValue = this.GetExampleEnumValue(p);
+                    return new ODataCollectionValue
+                        {Items = new[] {new ODataEnumValue(firstEnumValue), new ODataEnumValue(this.GetExampleEnumValue(p, firstEnumValue))}};
+                }
+                else
+                {
+                    return this.GetExamplePrimitiveValueArray(p);
+                }
             }
             else
             {
-                return this.GetExampleScalarPrimitiveValue(p);
+                if (p.Type.IsEnum())
+                {
+                    var usefulMember = this.GetExampleEnumValue(p);
+                    return new ODataEnumValue(usefulMember);
+                }
+                else
+                {
+                    return this.GetExampleScalarPrimitiveValue(p);
+                }
             }
         }
 
-        private object GetSuppliedStructuralValue(IEdmStructuralProperty p, string suppliedValue)
+        private string GetExampleEnumValue(IEdmStructuralProperty p, params string[] avoidValues)
         {
-            if (p.Type.IsCollection())
-            {
-                throw new InvalidOperationException("Arrays not yet supported.");
-                // return GetSuppliedPrimitiveValueArray(p, suppliedValue);
-            }
-            else
-            {
-                return this.GetSuppliedScalarPrimitiveValue(p, suppliedValue);
-            }
+            var enumType = (IEdmEnumType) p.Type.Definition.AsElementType();
+            var usefulMembers = enumType.Members
+                .Where(m => !m.Name.Equals("unknownFutureValue", StringComparison.OrdinalIgnoreCase))
+                .Where(m => !avoidValues.Contains(m.Name, StringComparer.OrdinalIgnoreCase))
+                .Select(m => m.Name).ToList();
+            string usefulMember = usefulMembers[this.Random.Next(usefulMembers.Count)];
+            return usefulMember;
         }
 
         private object GetExampleScalarPrimitiveValue(IEdmStructuralProperty p)
@@ -96,11 +95,52 @@ namespace ODataExampleGenerator
             };
         }
 
+        private object GetExamplePrimitiveValueArray(IEdmStructuralProperty p)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return new ODataCollectionValue {Items = ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
+            {
+                EdmPrimitiveTypeKind.Boolean => new object[]{ true, false}.AsEnumerable(),
+                EdmPrimitiveTypeKind.Byte =>  new object[]{this.Random.Next(10), this.Random.Next(10)},
+                EdmPrimitiveTypeKind.Date => new object[]{ new Date(now.Year, now.Month, now.Day), new Date(now.Year, now.Month, now.Day)},
+                EdmPrimitiveTypeKind.DateTimeOffset =>new object[]{now, now},
+                EdmPrimitiveTypeKind.Decimal => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Single => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Double => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Int16 => new object[]{this.Random.Next(10), this.Random.Next(10)},
+                EdmPrimitiveTypeKind.Int32 => new object[]{this.Random.Next(10), this.Random.Next(10)},
+                EdmPrimitiveTypeKind.Int64 => new object[]{this.Random.Next(10), this.Random.Next(10)},
+                EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(this.NextDouble(10.0)), TimeSpan.FromHours(this.NextDouble(10.0))},
+                EdmPrimitiveTypeKind.String => new object[]{$"An example {p.Name}", $"Another example {p.Name}"},
+                _ => throw new InvalidOperationException("Unknown primitive type."),
+            }};
+        }
+
+        private object GetSuppliedStructuralValue(IEdmStructuralProperty p, string suppliedValue)
+        {
+
+            if (p.Type.IsCollection())
+            {
+                throw new InvalidOperationException("Arrays not yet supported.");
+            }
+            else
+            {
+                if (p.Type.IsEnum())
+                {
+
+                    return new ODataEnumValue(suppliedValue);
+                }
+                else
+                {
+                    return this.GetSuppliedScalarPrimitiveValue(p, suppliedValue);
+                }
+            }
+        }
+
         private object GetSuppliedScalarPrimitiveValue(IEdmStructuralProperty p, string suppliedValue)
         {
             try
             {
-
                 bool isDateTimeOffset = DateTimeOffset.TryParse(suppliedValue, out DateTimeOffset o);
                 return ((IEdmPrimitiveType) p.Type.Definition.AsElementType()).PrimitiveKind switch
                 {
@@ -124,27 +164,6 @@ namespace ODataExampleGenerator
             {
                 throw new InvalidOperationException($"Value {suppliedValue} supplied for property {p.Name} can't be converted to the property type {p.Type.ShortQualifiedName()}.");
             }
-        }
-
-        private object GetExamplePrimitiveValueArray(IEdmStructuralProperty p)
-        {
-            var now = DateTimeOffset.UtcNow;
-            return new ODataCollectionValue {Items = ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
-            {
-                EdmPrimitiveTypeKind.Boolean => new object[]{ true, false}.AsEnumerable(),
-                EdmPrimitiveTypeKind.Byte =>  new object[]{this.Random.Next(10), this.Random.Next(10)},
-                EdmPrimitiveTypeKind.Date => new object[]{ new Date(now.Year, now.Month, now.Day), new Date(now.Year, now.Month, now.Day)},
-                EdmPrimitiveTypeKind.DateTimeOffset =>new object[]{now, now},
-                EdmPrimitiveTypeKind.Decimal => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Single => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Double => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Int16 => new object[]{this.Random.Next(10), this.Random.Next(10)},
-                EdmPrimitiveTypeKind.Int32 => new object[]{this.Random.Next(10), this.Random.Next(10)},
-                EdmPrimitiveTypeKind.Int64 => new object[]{this.Random.Next(10), this.Random.Next(10)},
-                EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(this.NextDouble(10.0)), TimeSpan.FromHours(this.NextDouble(10.0))},
-                EdmPrimitiveTypeKind.String => new object[]{$"An example {p.Name}", $"Another example {p.Name}"},
-                _ => throw new InvalidOperationException("Unknown primitive type."),
-            }};
         }
 
         private double NextDouble(double maxValue)
