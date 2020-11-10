@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
+using System.Threading;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
@@ -38,8 +38,7 @@ namespace ODataExampleGenerator
                 new Uri(uriToPost, UriKind.Relative));
             this.path = parser.ParsePath();
 
-            MemoryStream stream = new MemoryStream();
-
+            using var stream = new MemoryStream();
             using var message = new InMemoryMessage {Stream = stream};
 
             var settings = new ODataMessageWriterSettings
@@ -71,41 +70,9 @@ namespace ODataExampleGenerator
                     writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource, propertyType);
                 this.WriteResource(resWriter, propertyType);
 
-                var output = PrettyPrint(stream);
+                var output = JsonPrettyPrinter.PrettyPrint(stream.ToArray());
                 return output;
             }
-        }
-
-        /// <summary>
-        /// Get a tidied up string representation of the raw OData bytes.
-        /// </summary>
-        private static string PrettyPrint(MemoryStream stream)
-        {
-            var skipProperties = new[] {"@odata.context", "id"};
-
-            using JsonDocument doc = JsonDocument.Parse(stream.ToArray(),
-                new JsonDocumentOptions
-                    {AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip, MaxDepth = 2000});
-            var nodes = doc.RootElement.EnumerateObject()
-                .Where(e => !skipProperties.Contains(e.Name, StringComparer.OrdinalIgnoreCase));
-
-            // TODO: Recursively traverse the subnodes removing those too, then traverse doing the write.
-
-            using var outStream = new MemoryStream();
-            using (var outWriter = new Utf8JsonWriter(outStream, new JsonWriterOptions {Indented = true}))
-            {
-                outWriter.WriteStartObject();
-                foreach (var node in nodes)
-                {
-                    node.WriteTo(outWriter);
-                }
-
-                outWriter.WriteEndObject();
-            }
-
-            outStream.Flush();
-            string output = Encoding.UTF8.GetString(outStream.ToArray());
-            return output;
         }
 
         private void WriteResource(
