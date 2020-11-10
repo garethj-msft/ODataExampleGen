@@ -13,6 +13,7 @@ namespace ODataExampleGenerator
         public Random Random { get; } = new Random();
 
         private GenerationParameters GenerationParameters { get; }
+        private Dictionary<string, int> MonotonicPropertyValueTags { get; } = new Dictionary<string, int>();
 
         public ValueGenerator(GenerationParameters generationParameters)
         {
@@ -89,7 +90,7 @@ namespace ODataExampleGenerator
                 EdmPrimitiveTypeKind.Int64 => this.Random.Next(10),
                 EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(this.NextDouble(10.0)),
                 EdmPrimitiveTypeKind.String when p.Name.Equals("id", StringComparison.OrdinalIgnoreCase) => $"id{this.MonotonicId++}",
-                EdmPrimitiveTypeKind.String => $"{p.Name}-value",
+                EdmPrimitiveTypeKind.String => $"{p.Name}-{this.GetPropertyTag(p)}",
                 _ => throw new InvalidOperationException("Unknown primitive type."),
 
             };
@@ -111,7 +112,7 @@ namespace ODataExampleGenerator
                 EdmPrimitiveTypeKind.Int32 => new object[]{this.Random.Next(10), this.Random.Next(10)},
                 EdmPrimitiveTypeKind.Int64 => new object[]{this.Random.Next(10), this.Random.Next(10)},
                 EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(this.NextDouble(10.0)), TimeSpan.FromHours(this.NextDouble(10.0))},
-                EdmPrimitiveTypeKind.String => new object[]{$"{p.Name}-value1", $"{p.Name}-value2"},
+                EdmPrimitiveTypeKind.String => new object[]{$"{p.Name}-{this.GetPropertyTag(p)}", $"{p.Name}-{this.GetPropertyTag(p)}"},
                 _ => throw new InvalidOperationException("Unknown primitive type."),
             }};
         }
@@ -169,6 +170,18 @@ namespace ODataExampleGenerator
         private double NextDouble(double maxValue)
         {
             return this.Random.NextDouble() * maxValue;
+        }
+
+        private string GetPropertyTag(IEdmStructuralProperty p)
+        {
+            if (!this.MonotonicPropertyValueTags.TryGetValue(p.Name, out int tag))
+            {
+                tag = 1;
+            }
+
+            this.MonotonicPropertyValueTags[p.Name] = tag + 1;
+
+            return tag < 2 ? "value" : $"value{tag}";
         }
     }
 }
