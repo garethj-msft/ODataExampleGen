@@ -18,6 +18,8 @@ namespace ODataExampleGenerator
 
         public Uri ServiceRoot { get; set; }
 
+        public GenerationStyle GenerationStyle { get; set; }
+
         public IDictionary<string, IEdmStructuredType> ChosenTypes { get; } =
             new Dictionary<string, IEdmStructuredType>();
 
@@ -49,5 +51,11 @@ namespace ODataExampleGenerator
                     $@"Failed to read model {csdlFileFullPath}.\r\nErrors:\r\n{errorMessages}");
             }
         }
+    }
+
+    public enum GenerationStyle
+    {
+        Request,
+        Response,
     }
 }

@@ -70,7 +70,7 @@ namespace ODataExampleGenerator
                     writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource, propertyType);
                 this.WriteResource(resWriter, propertyType);
 
-                var output = JsonPrettyPrinter.PrettyPrint(stream.ToArray());
+                var output = JsonPrettyPrinter.PrettyPrint(stream.ToArray(), this.generationParameters);
                 return output;
             }
         }
@@ -130,7 +130,10 @@ namespace ODataExampleGenerator
             ODataWriter resWriter,
             IEnumerable<IEdmNavigationProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmNavigationProperty>(this.generationParameters.Model);
+            if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
+            {
+                properties = properties.FilterComputed<IEdmNavigationProperty>(this.generationParameters.Model);
+            }
 
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
             // to find the necessary nav prop bindings, we need to look under the root container (es or singleton) that the call is being made to.
@@ -216,7 +219,10 @@ namespace ODataExampleGenerator
             ODataWriter resWriter,
             IEnumerable<IEdmProperty> properties)
         {
-            properties = properties.FilterComputed<IEdmProperty>(this.generationParameters.Model);
+            if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
+            {
+                properties = properties.FilterComputed<IEdmProperty>(this.generationParameters.Model);
+            }
 
             foreach (IEdmProperty navProp in properties)
             {
@@ -262,10 +268,13 @@ namespace ODataExampleGenerator
             IEnumerable<IEdmStructuralProperty> properties,
             IEdmStructuredType hostType)
         {
-            properties = properties.Where(p => p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex)
-                .FilterComputed<IEdmStructuralProperty>(this.generationParameters.Model);
+            properties = properties.Where(p => p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex);
+            if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
+            {
+                properties = properties.FilterComputed<IEdmStructuralProperty>(this.generationParameters.Model);
+            }
 
-            List<ODataProperty> odataProps = new List<ODataProperty>(
+            var odataProps = new List<ODataProperty>(
                 properties.Select(p => this.valueGenerator.GetExamplePrimitiveProperty(hostType, p)));
 
             structuralResource.Properties = odataProps;

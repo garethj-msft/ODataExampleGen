@@ -1,4 +1,6 @@
-﻿namespace ODataExampleGen
+﻿using System.ComponentModel;
+
+namespace ODataExampleGen
 {
     using System;
     using System.Diagnostics;
@@ -24,7 +26,8 @@
             {
                 var generationParameters = new GenerationParameters
                 {
-                    ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute)
+                    ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute),
+                    GenerationStyle = options.GenerateResponse ? GenerationStyle.Response : GenerationStyle.Request,
                 };
 
                 generationParameters.LoadModel(options.CsdlFile);

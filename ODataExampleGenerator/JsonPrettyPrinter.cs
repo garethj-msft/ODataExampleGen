@@ -15,9 +15,9 @@
         /// <summary>
         /// Get a tidied up string representation of the raw OData bytes.
         /// </summary>
-        internal static string PrettyPrint(byte[] jsonBytes)
+        internal static string PrettyPrint(byte[] jsonBytes, GenerationParameters generationParameters)
         {
-            var skipProperties = new[] {"@odata.context", "id"};
+            string[] skipProperties = generationParameters.GenerationStyle == GenerationStyle.Request ? new[] {"@odata.context", "id"} : new string[0];
 
             using var doc = JsonDocument.Parse(
                 jsonBytes,

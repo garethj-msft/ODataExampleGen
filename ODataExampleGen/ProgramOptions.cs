@@ -9,6 +9,12 @@
             HelpText = "CSDL file to use as the model from within which to generate examples.")]
         public string CsdlFile { get; set; }
 
+        [Option('q', "request", Required = true, HelpText = "Generate a request body. Mutually exclusive with --response.", SetName = "request")]
+        public bool GenerateRequest { get; set; }
+
+        [Option('s', "response", Required = true, HelpText = "Generate a response body. Mutually exclusive with --request.", SetName = "response")]
+        public bool GenerateResponse{ get; set; }
+
         [Option('u', "uri", Required = true, HelpText = "URI to generate an example to POST to.")]
         public string UriToPost { get; set; }
 

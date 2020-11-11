@@ -2,7 +2,7 @@
   "profiles": {
     "ODataExampleGen": {
       "commandName": "Project",
-      "commandLineArgs": "-c C:\\Repos\\RosteringApi\\DataStation.API\\ControlPlane.TenantOutgoing.API.csdl -u external/dataFlowHub/tenantOutgoingFlow"
+      "commandLineArgs": "-c C:\\Repos\\RosteringApi\\DataStation.API\\ControlPlane.TenantOutgoing.API.csdl -u external/dataFlowHub/tenantOutgoingFlow -s"
     }
   }
 }
