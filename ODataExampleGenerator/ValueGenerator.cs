@@ -82,16 +82,16 @@ namespace ODataExampleGenerator
                 EdmPrimitiveTypeKind.Byte =>  this.Random.Next(10),
                 EdmPrimitiveTypeKind.Date => new Date(DateTimeOffset.UtcNow.Year, DateTimeOffset.UtcNow.Month, DateTimeOffset.UtcNow.Day),
                 EdmPrimitiveTypeKind.DateTimeOffset => DateTimeOffset.UtcNow,
-                EdmPrimitiveTypeKind.Decimal => this.NextDouble(10.0),
-                EdmPrimitiveTypeKind.Single => this.NextDouble(10.0),
+                EdmPrimitiveTypeKind.Decimal => (decimal)this.NextDouble(10.0),
+                EdmPrimitiveTypeKind.Single => (float)this.NextDouble(10.0),
                 EdmPrimitiveTypeKind.Double => this.NextDouble(10.0),
-                EdmPrimitiveTypeKind.Int16 => this.Random.Next(10),
+                EdmPrimitiveTypeKind.Int16 => (short)this.Random.Next(10),
                 EdmPrimitiveTypeKind.Int32 => this.Random.Next(10),
-                EdmPrimitiveTypeKind.Int64 => this.Random.Next(10),
+                EdmPrimitiveTypeKind.Int64 => (long)this.Random.Next(10),
                 EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(this.NextDouble(10.0)),
                 EdmPrimitiveTypeKind.String when p.Name.Equals("id", StringComparison.OrdinalIgnoreCase) => $"id{this.MonotonicId++}",
                 EdmPrimitiveTypeKind.String => $"{p.Name}-{this.GetPropertyTag(p)}",
-                _ => throw new InvalidOperationException("Unknown primitive type."),
+                _ => throw new InvalidOperationException($"Unknown primitive type '{((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind}'."),
 
             };
         }
@@ -105,15 +105,15 @@ namespace ODataExampleGenerator
                 EdmPrimitiveTypeKind.Byte =>  new object[]{this.Random.Next(10), this.Random.Next(10)},
                 EdmPrimitiveTypeKind.Date => new object[]{ new Date(now.Year, now.Month, now.Day), new Date(now.Year, now.Month, now.Day)},
                 EdmPrimitiveTypeKind.DateTimeOffset =>new object[]{now, now},
-                EdmPrimitiveTypeKind.Decimal => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Single => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Decimal => new object[]{ (decimal)this.NextDouble(10.0), (decimal)this.NextDouble(10.0)},
+                EdmPrimitiveTypeKind.Single => new object[]{ (float)this.NextDouble(10.0), (float)this.NextDouble(10.0)},
                 EdmPrimitiveTypeKind.Double => new object[]{ this.NextDouble(10.0), this.NextDouble(10.0)},
-                EdmPrimitiveTypeKind.Int16 => new object[]{this.Random.Next(10), this.Random.Next(10)},
+                EdmPrimitiveTypeKind.Int16 => new object[]{(short)this.Random.Next(10), (short)this.Random.Next(10)},
                 EdmPrimitiveTypeKind.Int32 => new object[]{this.Random.Next(10), this.Random.Next(10)},
-                EdmPrimitiveTypeKind.Int64 => new object[]{this.Random.Next(10), this.Random.Next(10)},
+                EdmPrimitiveTypeKind.Int64 => new object[]{(long)this.Random.Next(10), (long)this.Random.Next(10)},
                 EdmPrimitiveTypeKind.Duration => new object[]{TimeSpan.FromHours(this.NextDouble(10.0)), TimeSpan.FromHours(this.NextDouble(10.0))},
                 EdmPrimitiveTypeKind.String => new object[]{$"{p.Name}-{this.GetPropertyTag(p)}", $"{p.Name}-{this.GetPropertyTag(p)}"},
-                _ => throw new InvalidOperationException("Unknown primitive type."),
+                _ => throw new InvalidOperationException("Unknown primitive type '{((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind}'."),
             }};
         }
 

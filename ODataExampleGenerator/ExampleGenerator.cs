@@ -88,13 +88,21 @@ namespace ODataExampleGenerator
             this.AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties(),
                 structuredType);
             resWriter.WriteStart(rootOdr);
-            this.WriteContainedResources(resWriter,
-                structuredType.NavigationProperties().Where(p => p.ContainsTarget));
+            if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
+            {
+                this.WriteContainedResources(resWriter,
+                    structuredType.NavigationProperties().Where(p => p.ContainsTarget));
+            }
+
             this.WriteContainedResources(resWriter,
                 structuredType.StructuralProperties().Where(p =>
                     p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Complex));
-            this.WriteReferenceBindings(resWriter,
-                structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
+            if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
+            {
+                this.WriteReferenceBindings(resWriter,
+                    structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
+            }
+
             resWriter.WriteEnd(); // ODataResource
         }
 
@@ -113,13 +121,21 @@ namespace ODataExampleGenerator
             for (int i = 0; i < 2; i++)
             {
                 resWriter.WriteStart(rootOdr);
-                this.WriteContainedResources(resWriter,
-                    structuredType.NavigationProperties().Where(p => p.ContainsTarget));
+                if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
+                {
+                    this.WriteContainedResources(resWriter,
+                        structuredType.NavigationProperties().Where(p => p.ContainsTarget));
+                }
+
                 this.WriteContainedResources(resWriter,
                     structuredType.StructuralProperties().Where(p =>
                         p.Type.Definition.AsElementType().TypeKind == EdmTypeKind.Complex));
-                this.WriteReferenceBindings(resWriter,
-                    structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
+                if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
+                {
+                    this.WriteReferenceBindings(resWriter,
+                        structuredType.NavigationProperties().Where(p => !p.ContainsTarget));
+                }
+
                 resWriter.WriteEnd(); // ODataResource
             }
 
@@ -132,7 +148,7 @@ namespace ODataExampleGenerator
         {
             if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
             {
-                properties = properties.FilterComputed<IEdmNavigationProperty>(this.generationParameters.Model);
+                properties = properties.FilterReadOnly<IEdmNavigationProperty>(this.generationParameters.Model);
             }
 
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
@@ -221,7 +237,7 @@ namespace ODataExampleGenerator
         {
             if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
             {
-                properties = properties.FilterComputed<IEdmProperty>(this.generationParameters.Model);
+                properties = properties.FilterReadOnly<IEdmProperty>(this.generationParameters.Model);
             }
 
             foreach (IEdmProperty navProp in properties)
@@ -271,8 +287,9 @@ namespace ODataExampleGenerator
             properties = properties.Where(p => p.Type.Definition.AsElementType().TypeKind != EdmTypeKind.Complex);
             if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
             {
-                properties = properties.FilterComputed<IEdmStructuralProperty>(this.generationParameters.Model);
+                properties = properties.FilterReadOnly<IEdmStructuralProperty>(this.generationParameters.Model);
             }
+            properties = properties.FilterSpecialProperties();
 
             var odataProps = new List<ODataProperty>(
                 properties.Select(p => this.valueGenerator.GetExamplePrimitiveProperty(hostType, p)));

@@ -81,6 +81,10 @@ namespace ODataExampleGen
                 where mem1 != null
                 select mem1;
 
+            if (!members.Any())
+            {
+                throw new InvalidOperationException($"Unable to find an enum value '{enumValueString}' matching a property '{propertyName}'.");
+            }
             return Enumerable.First(members);
         }
 
