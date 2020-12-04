@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
+using Microsoft.OData.Edm.Vocabularies;
 using Microsoft.OData.UriParser;
 
 namespace ODataExampleGenerator
@@ -88,11 +90,8 @@ namespace ODataExampleGenerator
             this.AddExamplePrimitiveStructuralProperties(rootOdr, structuredType.StructuralProperties(),
                 structuredType);
             resWriter.WriteStart(rootOdr);
-            if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
-            {
-                this.WriteContainedResources(resWriter,
-                    structuredType.NavigationProperties().Where(p => p.ContainsTarget));
-            }
+            this.WriteContainedResources(resWriter,
+                structuredType.NavigationProperties().Where(p => p.ContainsTarget));
 
             this.WriteContainedResources(resWriter,
                 structuredType.StructuralProperties().Where(p =>
@@ -121,11 +120,8 @@ namespace ODataExampleGenerator
             for (int i = 0; i < 2; i++)
             {
                 resWriter.WriteStart(rootOdr);
-                if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
-                {
-                    this.WriteContainedResources(resWriter,
-                        structuredType.NavigationProperties().Where(p => p.ContainsTarget));
-                }
+                this.WriteContainedResources(resWriter,
+                    structuredType.NavigationProperties().Where(p => p.ContainsTarget));
 
                 this.WriteContainedResources(resWriter,
                     structuredType.StructuralProperties().Where(p =>
@@ -240,12 +236,22 @@ namespace ODataExampleGenerator
                 properties = properties.FilterReadOnly<IEdmProperty>(this.generationParameters.Model);
             }
 
-            foreach (IEdmProperty navProp in properties)
+            foreach (IEdmProperty property in properties)
             {
-                bool isCollection = navProp.Type.IsCollection();
-                resWriter.WriteStart(new ODataNestedResourceInfo {Name = navProp.Name, IsCollection = isCollection});
-                IEdmStructuredType propertyType = navProp.Type.Definition.AsElementType() as IEdmStructuredType;
-                propertyType = this.ChooseDerivedStructuralTypeIfAny(propertyType, navProp.Name);
+                if (this.generationParameters.GenerationStyle == GenerationStyle.Response &&
+                    property is IEdmNavigationProperty)
+                {
+                    var shouldAutoExpand = property.GetAnnotationValue<IEdmBooleanConstantExpression>(this.generationParameters.Model, "Org.OData.Core.V1.AutoExpand");
+                    if (shouldAutoExpand == null || !shouldAutoExpand.Value)
+                    {
+                        continue;
+                    }
+                }
+
+                bool isCollection = property.Type.IsCollection();
+                resWriter.WriteStart(new ODataNestedResourceInfo {Name = property.Name, IsCollection = isCollection});
+                IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
+                propertyType = this.ChooseDerivedStructuralTypeIfAny(propertyType, property.Name);
                 if (!isCollection)
                 {
                     this.WriteResource(resWriter, propertyType);

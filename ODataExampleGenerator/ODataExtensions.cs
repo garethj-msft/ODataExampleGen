@@ -51,13 +51,22 @@ namespace ODataExampleGenerator
 
         public static IEnumerable<IEdmStructuralProperty> FilterSpecialProperties(this IEnumerable<IEdmStructuralProperty> properties)
         {
-
             return properties.Where(p =>
             {
                 // Drop Edm.Stream properties.
                 return !(p.Type.Definition.AsElementType() is IEdmPrimitiveType primitive
                          && primitive.PrimitiveKind == EdmPrimitiveTypeKind.Stream);
             });
+        }
+
+        public static T GetAnnotationValue<T>(
+            this IEdmProperty property,
+            IEdmModel model,
+            string term)
+            where T : class, IEdmExpression
+        {
+            return property.VocabularyAnnotations(model).FirstOrDefault(a =>
+                a.Term.FullName().Equals(term, StringComparison.OrdinalIgnoreCase))?.Value as T;
         }
 
         private static bool IsBooleanExpressionWithValue(IEdmExpression expression, bool value)
