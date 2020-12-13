@@ -2,7 +2,7 @@
   "profiles": {
     "ODataExampleGen": {
       "commandName": "Project",
-      "commandLineArgs": "-s -c \\repos\\RosteringApi\\DataStation.API\\ControlPlane.Incoming.API.csdl -u external/dataFlowHub/dataSources -p dataSources:sftpFileDataSource credential:usernamePasswordCredential additionalData:schoolDataSyncV1FileFormatAdditionalData -e format:schoolDataSyncV1"
+      "commandLineArgs": "-q -c \\repos\\RosteringApi\\DataStation.API\\ControlPlane.Incoming.API.csdl -u external/industryData/incomingFlows -p dataConnectors:apiDataConnector credential:oAuth2Credential"
     }
   }
 }
