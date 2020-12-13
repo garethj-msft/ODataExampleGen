@@ -36,13 +36,7 @@
         /// <returns>Defined by the implementer.</returns>
         public override string Translate(NavigationPropertySegment segment)
         {
-            string retVal = "/" + segment.NavigationProperty.Name;
-            if (this.parameters.ChosenTypes.TryGetValue(segment.NavigationProperty.Name,
-                out IEdmStructuredType structured))
-            {
-                retVal += "/" + structured.FullTypeName();
-            }
-            return retVal;
+            return "/" + segment.NavigationProperty.Name;
         }
 
         /// <summary>Translate an EntitySetSegment</summary>

@@ -19,12 +19,21 @@ namespace ODataExampleGenerator
             where T : IEdmProperty
         {
             // Get a path <from> the host/first term, by dropping the first segment.
-            string GetPropertyPathExpression(IEdmNavigationProperty p) =>
-                PathSegmentToPathExpressionTranslator.GetPathExpression(
-                    new ODataPath(pathToProperties.Skip(1)
-                        .Concat(Enumerable.Repeat(new NavigationPropertySegment(p, null), 1))),
+            string GetPropertyPathExpression(IEdmNavigationProperty p)
+            {
+                var segments = new List<ODataPathSegment>(pathToProperties.Skip(1));
+                // Add a typecast if the property does not live on the base type of the container.
+                if (segments.Last().EdmType.AsElementType() != p.DeclaringType.AsElementType() &&
+                    ((IEdmStructuredType)p.DeclaringType.AsElementType()).InheritsFrom((IEdmStructuredType)segments.Last().EdmType.AsElementType()))
+                {
+                    segments.Add(new TypeSegment(p.DeclaringType, p.DeclaringType, null));
+                }
+                segments.Add(new NavigationPropertySegment(p, null));
+                var propPath = new ODataPath(segments);
+                return PathSegmentToPathExpressionTranslator.GetPathExpression(
+                    propPath,
                     parameters).TrimStart('/');
-
+            }
 
             IEdmVocabularyAnnotatable root =
                 (pathToProperties.FirstSegment as EntitySetSegment)?.EntitySet ??
