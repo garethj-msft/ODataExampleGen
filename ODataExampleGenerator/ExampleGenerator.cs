@@ -64,10 +64,19 @@
 
             IEdmProperty property = finalNavPropSegment.NavigationProperty;
             IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
-            propertyType = this.ChooseDerivedStructuralTypeIfAny(propertyType, property.Name);
-            ODataWriter resWriter =
-                writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource, propertyType);
-            this.WriteResource(resWriter, propertyType, this.path);
+            if (!property.Type.IsCollection())
+            {
+                ODataWriter resWriter =
+                    writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource, propertyType);
+                this.WriteResource(resWriter, property, this.path);
+            }
+            else
+            {
+                IEdmEntitySetBase entitySet = new EdmEntitySet(this.generationParameters.Model.EntityContainer, this.path.FirstSegment.Identifier, (IEdmEntityType)propertyType);
+                ODataWriter resWriter =
+                    writer.CreateODataResourceSetWriter(entitySet, propertyType);
+                this.WriteResourceSet(resWriter, property, this.path);
+            }
 
             var output = JsonPrettyPrinter.PrettyPrint(stream.ToArray(), this.generationParameters);
             return output;
@@ -75,9 +84,12 @@
 
         private void WriteResource(
             ODataWriter resWriter,
-            IEdmStructuredType structuredType,
+            IEdmProperty sourceProperty,
             ODataPath pathToResource)
         {
+            IEdmStructuredType structuredType = sourceProperty.Type.Definition.AsElementType() as IEdmStructuredType;
+            structuredType = this.ChooseDerivedStructuralTypeIfAny(structuredType, sourceProperty.Name);
+
             var rootOdr = new ODataResource
             {
                 TypeName = structuredType.FullTypeName(),
@@ -112,22 +124,30 @@
 
         private void WriteResourceSet(
             ODataWriter resWriter,
-            IEdmStructuredType structuredType,
+            IEdmProperty sourceProperty,
             ODataPath pathToResources)
         {
+            IEdmStructuredType structuredType = sourceProperty.Type.Definition.AsElementType() as IEdmStructuredType;
             var set = new ODataResourceSet();
-            var rootOdr = new ODataResource
-            {
-                TypeName = structuredType.FullTypeName()
-            };
-            this.AddExamplePrimitiveStructuralProperties(
-                rootOdr,
-                structuredType.StructuralProperties(),
-                structuredType,
-                pathToResources);
             resWriter.WriteStart(set);
-            for (int i = 0; i < 2; i++)
+
+            // SetSize might be constrained by an annotation on the navigation property or source on the nav property.
+            long setSize = sourceProperty.GetAnnotationValue<IEdmIntegerConstantExpression>(this.generationParameters.Model, "Org.OData.Validation.V1.MaxItems")?.Value ?? 2;
+
+            for (long i = 0; i < setSize; i++)
             {
+                structuredType = this.ChooseDerivedStructuralTypeIfAny(structuredType, sourceProperty.Name);
+                var rootOdr = new ODataResource
+                {
+                    TypeName = structuredType.FullTypeName()
+                };
+
+                this.AddExamplePrimitiveStructuralProperties(
+                    rootOdr,
+                    structuredType.StructuralProperties(),
+                    structuredType,
+                    pathToResources);
+
                 resWriter.WriteStart(rootOdr);
                 this.WriteContainedResources(
                     resWriter,
@@ -273,11 +293,11 @@
 
                 if (!isCollection)
                 {
-                    this.WriteResource(resWriter, propertyType, nestedPath);
+                    this.WriteResource(resWriter, property, nestedPath);
                 }
                 else
                 {
-                    this.WriteResourceSet(resWriter, propertyType, nestedPath);
+                    this.WriteResourceSet(resWriter, property, nestedPath);
                 }
 
                 resWriter.WriteEnd(); // ODataNestedResourceInfo
