@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "ODataExampleGen": {
-      "commandName": "Project",
-      "commandLineArgs": "-q -c C:\\Repos\\AristoServices\\src\\Shared\\Common.ControlPlaneModels\\ControlPlane.IndustryData.All.API.csdl -u industryData/years -p incomingFlows:incomingApiFlow apiFilter:oneRosterApiFilter -e dataDomain:educationRostering -r year:2019"
-    }
-  }
-}
