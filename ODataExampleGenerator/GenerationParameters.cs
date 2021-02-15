@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices.ComTypes;
+﻿using System.Net.Http;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace ODataExampleGenerator
 {
@@ -14,11 +15,13 @@ namespace ODataExampleGenerator
 
     public class GenerationParameters
     {
+        public HttpMethod HttpMethod { get; set; }
+
         public IEdmModel Model { get; set; }
 
         public Uri ServiceRoot { get; set; }
 
-        public GenerationStyle GenerationStyle { get; set; }
+        internal GenerationStyle GenerationStyle { get; set; }
 
         public IDictionary<string, IEdmStructuredType> ChosenTypes { get; } =
             new Dictionary<string, IEdmStructuredType>();

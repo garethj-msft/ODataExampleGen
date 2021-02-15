@@ -16,7 +16,7 @@ namespace ODataExampleGenerator
         private const string OrgODataCoreV1Computed = "Org.OData.Core.V1.Computed";
         private const string OrgODataCapabilitiesV1NavigationRestrictions = "Org.OData.Capabilities.V1.NavigationRestrictions";
 
-        public static IEnumerable<T> FilterReadOnly<T>(this IEnumerable<IEdmProperty> properties, ODataPath pathToProperties, GenerationParameters parameters)
+        public static IEnumerable<T> FilterReadOnly<T>(this IEnumerable<T> properties, ODataPath pathToProperties, GenerationParameters parameters)
             where T : IEdmProperty
         {
             // Get a path <from> the host/first term, by dropping the first segment.
@@ -66,7 +66,7 @@ namespace ODataExampleGenerator
                     HasReadOnlyNavigationRestriction(root.VocabularyAnnotations(parameters.Model), GetPropertyPathExpression(navProp)); // Root has an annotation targeting the property.
 
                 return !readOnly;
-            }).Cast<T>();
+            });
         }
 
         /// <summary>
