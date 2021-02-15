@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Net.Http;
 
 namespace ODataExampleGen
 {
@@ -27,10 +28,18 @@ namespace ODataExampleGen
                 var generationParameters = new GenerationParameters
                 {
                     ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute),
-                    GenerationStyle = options.GenerateResponse ? GenerationStyle.Response : GenerationStyle.Request,
                 };
 
                 generationParameters.LoadModel(options.CsdlFile);
+
+                try
+                {
+                    generationParameters.HttpMethod = new HttpMethod(options.Method);
+                }
+                catch (FormatException)
+                {
+                    throw new InvalidOperationException($"Unknown method argument {options.Method}.");
+                }
 
                 // Process the more complicated options into actionable structures.
                 ProgramOptionsExtractor.PopulateChosenTypes(options, generationParameters);
