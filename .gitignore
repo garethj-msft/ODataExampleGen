@@ -340,4 +340,4 @@ ASALocalRun/
 healthchecksdb
 
 # Visual Studio Debug window
-**/Properties/launchSettings.json
+**/launchSettings.json

@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "ODataExampleGen": {
-      "commandName": "Project",
-      "commandLineArgs": "-q -c \\repos\\RosteringApi\\DataStation.API\\ControlPlane.Incoming.API.csdl -u external/industryData/incomingFlows -p incomingFlows:incomingApiFlow apiFilter:oneRosterApiFilter -e dataDomain:educationRostering recurrenceHint:daily -r year:2019"
-    }
-  }
-}
