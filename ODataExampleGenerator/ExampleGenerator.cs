@@ -454,6 +454,18 @@ namespace ODataExampleGenerator
             IEdmStructuredType hostType)
         {
             properties = properties.FilterSpecialProperties();
+            if (this.generationParameters.HttpMethod == HttpMethod.Patch &&
+                this.generationParameters.GenerationStyle == GenerationStyle.Request)
+            {
+                // Just pick one simple property (plus the id, which is required for serialization) to demonstrate patch.
+                var single = properties.FirstOrDefault(p => !p.IsKey() && p.Type.IsPrimitive());
+                var key = properties.FirstOrDefault(p => p.IsKey());
+                properties = single != null ? Enumerable.Repeat(single, 1) : Enumerable.Empty<IEdmStructuralProperty>();
+                if (key != null)
+                {
+                    properties = properties.Concat(Enumerable.Repeat(key, 1));
+                }
+            }
 
             var odataProps = new List<ODataProperty>(
                 properties.Select(p => this.valueGenerator.GetExamplePrimitiveProperty(hostType, p)));
