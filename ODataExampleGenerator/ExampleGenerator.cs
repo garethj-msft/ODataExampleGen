@@ -133,10 +133,6 @@
 
             var propTypes = this.ChooseDerivedStructuralTypeList(structuredType, sourceProperty.Name).ToList();
             long setSize = propTypes.LongCount();
-            if (setSize == 1)
-            {
-                setSize++;  // Show an array even if there's only one type.
-            }
 
             // SetSize might be constrained by an annotation on the navigation property or source on the nav property.
             setSize = Math.Min(sourceProperty.GetAnnotationValue<IEdmIntegerConstantExpression>(this.generationParameters.Model, "Org.OData.Validation.V1.MaxItems")?.Value ?? setSize, setSize);
