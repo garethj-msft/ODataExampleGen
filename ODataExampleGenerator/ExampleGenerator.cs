@@ -24,6 +24,7 @@ namespace ODataExampleGenerator
         private readonly GenerationParameters generationParameters;
         private readonly ValueGenerator valueGenerator;
         private ODataPath path;
+        private SelectExpandClause selectExpand;
 
         public ExampleGenerator(GenerationParameters generationParameters)
         {
@@ -46,7 +47,7 @@ namespace ODataExampleGenerator
                 this.generationParameters.ServiceRoot,
                 new Uri(incomingUri, UriKind.Relative));
             this.path = parser.ParsePath();
-
+            this.selectExpand = parser.ParseSelectAndExpand();
 
             // Get to start point of writer, using path.
             if (!(this.path.LastSegment is NavigationPropertySegment ||
@@ -364,11 +365,20 @@ namespace ODataExampleGenerator
         {
             foreach (T property in properties)
             {
-                if (this.generationParameters.GenerationStyle == GenerationStyle.Response &&
+                ODataPath nestedPath = pathToResources.ConcatenateSegment(property);
+
+                // Responses to POSTS must return everything that was sent in.
+                if ((this.generationParameters.GenerationStyle == GenerationStyle.Response ||
+                     this.generationParameters.HttpMethod != HttpMethod.Post) &&
                     property is IEdmNavigationProperty)
                 {
-                    var shouldAutoExpand = property.GetAnnotationValue<IEdmBooleanConstantExpression>(this.generationParameters.Model, "Org.OData.Core.V1.AutoExpand");
-                    if (shouldAutoExpand == null || !shouldAutoExpand.Value)
+                    bool shouldAutoExpand =
+                        property.GetAnnotationValue<IEdmBooleanConstantExpression>(this.generationParameters.Model,
+                            "Org.OData.Core.V1.AutoExpand")?.Value ?? false;
+                    bool hasExplicitExpand = pathToResources == this.path &&  // Only work at initial level.
+                        (this.selectExpand?.SelectedItems?.OfType<ExpandedNavigationSelectItem>()
+                            .Any(i => i.PathToNavigationProperty.LastSegment.Identifier == nestedPath.LastSegment.Identifier) ?? false);
+                    if (!(shouldAutoExpand || hasExplicitExpand))
                     {
                         continue;
                     }
@@ -376,7 +386,6 @@ namespace ODataExampleGenerator
 
                 bool isCollection = property.Type.IsCollection();
                 resWriter.WriteStart(new ODataNestedResourceInfo {Name = property.Name, IsCollection = isCollection});
-                ODataPath nestedPath = pathToResources.ConcatenateSegment(property);
 
                 if (!isCollection)
                 {

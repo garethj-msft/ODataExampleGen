@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <StartupObject>ODataExampleGen.Program</StartupObject>
-    <Version>0.6.5</Version>
+    <Version>0.6.6</Version>
     <Authors>Gareth Jones</Authors>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>ODataExampleGen</PackageId>
