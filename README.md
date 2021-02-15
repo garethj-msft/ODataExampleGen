@@ -1,5 +1,5 @@
 # ODataExampleGen
-Generate example JSON packets for OData APIs.
+Generate example JSON packets for requests or responses for OData APIs.
 
 Usage:
 
