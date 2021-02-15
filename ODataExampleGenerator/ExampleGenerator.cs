@@ -52,37 +52,34 @@
             };
 
             // Get to start point of writer, using path.
-            KeySegment finalKeySegment = null;
-            if (!(this.path.LastSegment is NavigationPropertySegment finalNavPropSegment))
+            if (!(this.path.LastSegment is NavigationPropertySegment ||
+                  this.path.LastSegment is KeySegment ||
+                  this.path.LastSegment is EntitySetSegment ||
+                  this.path.LastSegment is SingletonSegment))
             {
-                if (!(this.path.LastSegment is KeySegment key))
-                {
-                    throw new InvalidOperationException("Path must end in navigation property or a key into a navigation property.");
-                }
-
-                finalKeySegment = key;
-                finalNavPropSegment = (NavigationPropertySegment)this.path.ToList()[this.path.Count - 2];
+                throw new InvalidOperationException("Path must end in an EntitySet, a Singleton, a navigation property or a key into a navigation property.");
             }
+
+            IEdmNavigationSource source = this.path.LastSegment.GetNavigationSource();
 
             using var writer = new ODataMessageWriter(
                 (IODataRequestMessage) message,
                 settings,
                 this.generationParameters.Model);
 
-            IEdmProperty property = finalNavPropSegment.NavigationProperty;
-            IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
-            if (finalKeySegment != null || !property.Type.IsCollection())
+            IEdmStructuredType propertyType = source.Type.AsElementType() as IEdmStructuredType;
+            if (this.path.LastSegment.EdmType.TypeKind != EdmTypeKind.Collection)
             {
                 ODataWriter resWriter =
-                    writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource, propertyType);
-                this.WriteResource(resWriter, property, this.path);
+                    writer.CreateODataResourceWriter(source, propertyType);
+                this.WriteResource(resWriter, source, this.path);
             }
             else
             {
-                IEdmEntitySetBase entitySet = new EdmEntitySet(this.generationParameters.Model.EntityContainer, this.path.FirstSegment.Identifier, (IEdmEntityType)propertyType);
+                IEdmEntitySetBase entitySet = source as IEdmEntitySetBase;
                 ODataWriter resWriter =
                     writer.CreateODataResourceSetWriter(entitySet, propertyType);
-                this.WriteResourceSet(resWriter, property, this.path);
+                this.WriteResourceSet(resWriter, source, this.path);
             }
 
             var output = JsonPrettyPrinter.PrettyPrint(stream.ToArray(), this.generationParameters);
@@ -91,11 +88,28 @@
 
         private void WriteResource(
             ODataWriter resWriter,
-            IEdmProperty sourceProperty,
+            IEdmNavigationSource navSource,
             ODataPath pathToResource)
         {
-            IEdmStructuredType structuredType = sourceProperty.Type.Definition.AsElementType() as IEdmStructuredType;
-            structuredType = this.ChooseDerivedStructuralTypeIfAny(structuredType, sourceProperty.Name);
+            IEdmStructuredType structuredType = navSource.Type.AsElementType() as IEdmStructuredType;
+            this.WriteResourceImpl(resWriter, pathToResource, structuredType, navSource.Name);
+        }
+        private void WriteResource(
+            ODataWriter resWriter,
+            IEdmStructuralProperty property,
+            ODataPath pathToResource)
+        {
+            IEdmStructuredType structuredType = property.Type.Definition.AsElementType() as IEdmStructuredType;
+            this.WriteResourceImpl(resWriter, pathToResource, structuredType, property.Name);
+        }
+
+        private void WriteResourceImpl(
+            ODataWriter resWriter,
+            ODataPath pathToResource,
+            IEdmStructuredType structuredType,
+            string sourceName)
+        {
+            structuredType = this.ChooseDerivedStructuralTypeIfAny(structuredType, sourceName);
 
             var rootOdr = new ODataResource
             {
@@ -131,22 +145,52 @@
 
         private void WriteResourceSet(
             ODataWriter resWriter,
-            IEdmProperty sourceProperty,
+            IEdmNavigationSource navSource,
             ODataPath pathToResources)
         {
-            IEdmStructuredType structuredType = sourceProperty.Type.Definition.AsElementType() as IEdmStructuredType;
+            IEdmStructuredType structuredType = navSource.Type.AsElementType() as IEdmStructuredType;
+
+            IEdmVocabularyAnnotatable annotatable = null;
+            if (navSource is IEdmContainedEntitySet contained)
+            {
+                // SetSize might be constrained by an annotation on the navigation property or source on the nav property.
+                annotatable = contained.NavigationProperty;
+            }
+            else if (navSource is IEdmEntitySet || navSource is IEdmSingleton)
+            {
+                annotatable = (IEdmVocabularyAnnotatable)navSource;
+            }
+
+            this.WriteResourceSetImpl(resWriter, pathToResources, structuredType, annotatable, navSource.Name);
+        }
+
+        private void WriteResourceSet(
+            ODataWriter resWriter,
+            IEdmStructuralProperty property,
+            ODataPath pathToResources)
+        {
+            IEdmStructuredType structuredType = property.Type.Definition.AsElementType() as IEdmStructuredType;
+            this.WriteResourceSetImpl(resWriter, pathToResources, structuredType, property, property.Name);
+        }
+
+        private void WriteResourceSetImpl(
+            ODataWriter resWriter,
+            ODataPath pathToResources,
+            IEdmStructuredType structuredType,
+            IEdmVocabularyAnnotatable annotatable,
+            string sourceName)
+        {
+            var propTypes = this.ChooseDerivedStructuralTypeList(structuredType, sourceName).ToList();
+
+            long setSize = propTypes.LongCount();
+            setSize = Math.Min(annotatable.GetAnnotationValue<IEdmIntegerConstantExpression>(this.generationParameters.Model, "Org.OData.Validation.V1.MaxItems")?.Value ?? setSize, setSize);
+
             var set = new ODataResourceSet();
             resWriter.WriteStart(set);
 
-            var propTypes = this.ChooseDerivedStructuralTypeList(structuredType, sourceProperty.Name).ToList();
-            long setSize = propTypes.LongCount();
-
-            // SetSize might be constrained by an annotation on the navigation property or source on the nav property.
-            setSize = Math.Min(sourceProperty.GetAnnotationValue<IEdmIntegerConstantExpression>(this.generationParameters.Model, "Org.OData.Validation.V1.MaxItems")?.Value ?? setSize, setSize);
-
             for (long i = 0; i < setSize; i++)
             {
-                int typeIndex = (int)(i < propTypes.LongCount() ? i : propTypes.LongCount() - 1);
+                int typeIndex = (int) (i < propTypes.LongCount() ? i : propTypes.LongCount() - 1);
                 structuredType = propTypes[typeIndex];
                 var rootOdr = new ODataResource
                 {
@@ -189,9 +233,15 @@
             IEnumerable<IEdmNavigationProperty> properties,
             ODataPath pathToResources)
         {
+            properties = properties.ToList();
+            if (!properties.Any())
+            {
+                return;
+            }
+
             if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
             {
-                properties = properties.FilterReadOnly<IEdmNavigationProperty>(this.path, this.generationParameters);
+                properties = properties.FilterReadOnly<IEdmNavigationProperty>(pathToResources, this.generationParameters);
             }
 
             // For each property, build URL to the nav prop based on the nav prop binding in the entitySet.
@@ -205,7 +255,8 @@
                 var binding = bindingsHost.FindNavigationPropertyBindings(navProp).FirstOrDefault();
                 if (binding == null)
                 {
-                    throw new InvalidOperationException($"Error: No bindingPath found for {navProp.Name}.");
+                    // If there's no binding we can't determine what the link should be.
+                    continue;
                 }
 
                 resWriter.WriteStart(new ODataNestedResourceInfo {Name = navProp.Name, IsCollection = isCollection});
@@ -281,7 +332,7 @@
         {
             if (this.generationParameters.GenerationStyle == GenerationStyle.Request)
             {
-                properties = properties.FilterReadOnly<IEdmProperty>(this.path, this.generationParameters);
+                properties = properties.FilterReadOnly<IEdmProperty>(pathToResources, this.generationParameters);
             }
 
             foreach (IEdmProperty property in properties)
@@ -302,11 +353,25 @@
 
                 if (!isCollection)
                 {
-                    this.WriteResource(resWriter, property, nestedPath);
+                    if (property is IEdmStructuralProperty structural)
+                    {
+                        this.WriteResource(resWriter, structural, nestedPath);
+                    }
+                    else
+                    {
+                        this.WriteResource(resWriter, nestedPath.LastSegment.GetNavigationSource(), nestedPath);
+                    }
                 }
                 else
                 {
-                    this.WriteResourceSet(resWriter, property, nestedPath);
+                    if (property is IEdmStructuralProperty structural)
+                    {
+                        this.WriteResourceSet(resWriter, structural, nestedPath);
+                    }
+                    else
+                    {
+                        this.WriteResourceSet(resWriter, nestedPath.LastSegment.GetNavigationSource(), nestedPath);
+                    }
                 }
 
                 resWriter.WriteEnd(); // ODataNestedResourceInfo
