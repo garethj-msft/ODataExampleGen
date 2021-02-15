@@ -131,12 +131,20 @@
             var set = new ODataResourceSet();
             resWriter.WriteStart(set);
 
+            var propTypes = this.ChooseDerivedStructuralTypeList(structuredType, sourceProperty.Name).ToList();
+            long setSize = propTypes.LongCount();
+            if (setSize == 1)
+            {
+                setSize++;  // Show an array even if there's only one type.
+            }
+
             // SetSize might be constrained by an annotation on the navigation property or source on the nav property.
-            long setSize = sourceProperty.GetAnnotationValue<IEdmIntegerConstantExpression>(this.generationParameters.Model, "Org.OData.Validation.V1.MaxItems")?.Value ?? 2;
+            setSize = Math.Min(sourceProperty.GetAnnotationValue<IEdmIntegerConstantExpression>(this.generationParameters.Model, "Org.OData.Validation.V1.MaxItems")?.Value ?? setSize, setSize);
 
             for (long i = 0; i < setSize; i++)
             {
-                structuredType = this.ChooseDerivedStructuralTypeIfAny(structuredType, sourceProperty.Name);
+                int typeIndex = (int)(i < propTypes.LongCount() ? i : propTypes.LongCount() - 1);
+                structuredType = propTypes[typeIndex];
                 var rootOdr = new ODataResource
                 {
                     TypeName = structuredType.FullTypeName()
@@ -287,8 +295,6 @@
 
                 bool isCollection = property.Type.IsCollection();
                 resWriter.WriteStart(new ODataNestedResourceInfo {Name = property.Name, IsCollection = isCollection});
-                IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
-                propertyType = this.ChooseDerivedStructuralTypeIfAny(propertyType, property.Name);
                 ODataPath nestedPath = pathToResources.ConcatenateSegment(property);
 
                 if (!isCollection)
@@ -308,20 +314,34 @@
             IEdmStructuredType propertyType,
             string propertyName)
         {
-            var potentialTypes = this.generationParameters.Model.FindAllDerivedTypes(propertyType).ToList();
-            if (potentialTypes.Count > 0)
-            {
-                // Must pick a type.
-                potentialTypes.Add(propertyType);
+            var potentialTypes = this.ChooseDerivedStructuralTypeList(propertyType, propertyName).ToList();
+            return potentialTypes[this.valueGenerator.Random.Next(potentialTypes.Count)];
+        }
 
-                if (!this.generationParameters.ChosenTypes.TryGetValue(propertyName, out propertyType))
+        private IList<IEdmStructuredType> ChooseDerivedStructuralTypeList(
+            IEdmStructuredType propertyType,
+            string propertyName)
+        {
+            if (this.generationParameters.ChosenTypes.TryGetValue(propertyName, out var chosenType))
+            {
+                propertyType = chosenType;
+            }
+            else
+            {
+                var potentialTypes = this.generationParameters.Model.FindAllDerivedTypes(propertyType)
+                    .Where(t => !t.IsAbstract).ToList();
+                if (potentialTypes.Count > 0)
                 {
-                    var concreteTypes = potentialTypes.Where(t => !t.IsAbstract).ToList();
-                    propertyType = concreteTypes[this.valueGenerator.Random.Next(concreteTypes.Count)];
+                    if (!propertyType.IsAbstract)
+                    {
+                        potentialTypes.Add(propertyType);
+                    }
+
+                    return potentialTypes;
                 }
             }
 
-            return propertyType;
+            return Enumerable.Repeat(propertyType, 1).ToList();
         }
 
         private void AddExamplePrimitiveStructuralProperties(
