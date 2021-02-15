@@ -52,9 +52,16 @@
             };
 
             // Get to start point of writer, using path.
+            KeySegment finalKeySegment = null;
             if (!(this.path.LastSegment is NavigationPropertySegment finalNavPropSegment))
             {
-                throw new InvalidOperationException("Path must end in navigation property.");
+                if (!(this.path.LastSegment is KeySegment key))
+                {
+                    throw new InvalidOperationException("Path must end in navigation property or a key into a navigation property.");
+                }
+
+                finalKeySegment = key;
+                finalNavPropSegment = (NavigationPropertySegment)this.path.ToList()[this.path.Count - 2];
             }
 
             using var writer = new ODataMessageWriter(
@@ -64,7 +71,7 @@
 
             IEdmProperty property = finalNavPropSegment.NavigationProperty;
             IEdmStructuredType propertyType = property.Type.Definition.AsElementType() as IEdmStructuredType;
-            if (!property.Type.IsCollection())
+            if (finalKeySegment != null || !property.Type.IsCollection())
             {
                 ODataWriter resWriter =
                     writer.CreateODataResourceWriter(finalNavPropSegment.NavigationSource, propertyType);
