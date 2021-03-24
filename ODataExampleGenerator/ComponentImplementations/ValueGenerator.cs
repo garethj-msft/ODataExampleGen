@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
+using ODataExampleGenerator.ComponentInterfaces;
 
 namespace ODataExampleGenerator.ComponentImplementations
 {
@@ -13,12 +14,19 @@ namespace ODataExampleGenerator.ComponentImplementations
         private Random Random { get; } = new Random();
 
         private GenerationParameters GenerationParameters { get; }
-
+        
+        private IEnumerable<IIdProvider> IdProviders { get; }
+        
         private Dictionary<string, int> MonotonicPropertyValueTags { get; } = new Dictionary<string, int>();
 
-        public ValueGenerator(GenerationParameters generationParameters)
+        private Dictionary<int, string> IdValues { get; } = new Dictionary<int, string>();
+
+        public ValueGenerator(
+            GenerationParameters generationParameters,
+            IEnumerable<IIdProvider> idProviders)
         {
             this.GenerationParameters = generationParameters;
+            IdProviders = idProviders;
         }
 
         public ODataProperty GetExamplePrimitiveProperty(
@@ -126,7 +134,14 @@ namespace ODataExampleGenerator.ComponentImplementations
 
         private string GetIdValue(IEdmStructuralProperty p, int monotonicId)
         {
-            return $"id{monotonicId}";
+            // TODO: Choose the correct id provider from @default, specific.
+            // TODO: align the id that came in for an individual GET call with the *first* id value.
+            if (!this.IdValues.TryGetValue(monotonicId, out string idValue))
+            {
+                idValue = this.IdProviders.Last().GetNewId();
+                this.IdValues[monotonicId] = idValue;
+            }
+            return idValue;
         }
 
         private object GetSuppliedStructuralValue(IEdmStructuralProperty p, string suppliedValue)
