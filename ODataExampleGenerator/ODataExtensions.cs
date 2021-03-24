@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Resources;
 using System.Runtime.CompilerServices;
 using Microsoft.OData.Edm;
@@ -15,19 +16,22 @@ namespace ODataExampleGenerator
         private const string OrgODataCoreV1Computed = "Org.OData.Core.V1.Computed";
         private const string OrgODataCapabilitiesV1NavigationRestrictions = "Org.OData.Capabilities.V1.NavigationRestrictions";
 
-        public static IEnumerable<T> FilterReadOnly<T>(this IEnumerable<IEdmProperty> properties, ODataPath pathToProperties, GenerationParameters parameters)
+        public static IEnumerable<T> FilterReadOnly<T>(this IEnumerable<T> properties, ODataPath pathToProperties, GenerationParameters parameters)
             where T : IEdmProperty
         {
             // Get a path <from> the host/first term, by dropping the first segment.
             string GetPropertyPathExpression(IEdmNavigationProperty p)
             {
                 var segments = new List<ODataPathSegment>(pathToProperties.Skip(1));
-                // Add a typecast if the property does not live on the base type of the container.
-                if (segments.Last().EdmType.AsElementType() != p.DeclaringType.AsElementType() &&
-                    ((IEdmStructuredType)p.DeclaringType.AsElementType()).InheritsFrom((IEdmStructuredType)segments.Last().EdmType.AsElementType()))
+                if (segments.Any() &&
+                    segments.Last().EdmType.AsElementType() != p.DeclaringType.AsElementType() &&
+                    ((IEdmStructuredType)p.DeclaringType.AsElementType()).InheritsFrom(
+                                (IEdmStructuredType)segments.Last().EdmType.AsElementType()))
                 {
+                    // Add a typecast if the property does not live on the base type of the container.
                     segments.Add(new TypeSegment(p.DeclaringType, p.DeclaringType, null));
                 }
+
                 segments.Add(new NavigationPropertySegment(p, null));
                 var propPath = new ODataPath(segments);
                 return PathSegmentToPathExpressionTranslator.GetPathExpression(
@@ -62,7 +66,7 @@ namespace ODataExampleGenerator
                     HasReadOnlyNavigationRestriction(root.VocabularyAnnotations(parameters.Model), GetPropertyPathExpression(navProp)); // Root has an annotation targeting the property.
 
                 return !readOnly;
-            }).Cast<T>();
+            });
         }
 
         /// <summary>
@@ -101,9 +105,24 @@ namespace ODataExampleGenerator
 
         public static bool EqualsOic(this string theString, string value) => theString.Equals(value, StringComparison.OrdinalIgnoreCase);
 
-        public static ODataPath ConcatenateSegment(this ODataPath pathToProperties, IEdmNavigationProperty p) =>
-            new ODataPath(pathToProperties.Concat(Enumerable.Repeat(
-                new NavigationPropertySegment(p, null), 1)));
+        public static ODataPath ConcatenateSegment(this ODataPath pathToProperties, IEdmNavigationProperty p)
+        {
+            IEdmNavigationSource parentNavSource = GetNavigationSource(pathToProperties.LastSegment);
+            IEdmNavigationSource targetNavSource = parentNavSource.FindNavigationTarget(p);
+
+            return new ODataPath(pathToProperties.Concat(Enumerable.Repeat(
+                new NavigationPropertySegment(p, targetNavSource), 1)));
+        }
+
+        public static IEdmNavigationSource GetNavigationSource(this ODataPathSegment pathSegment) =>
+            pathSegment switch
+            {
+                NavigationPropertySegment nps => nps.NavigationSource,
+                EntitySetSegment ess => ess.EntitySet,
+                SingletonSegment ss => ss.Singleton,
+                KeySegment ks => ks.NavigationSource,
+                _ => throw new InvalidOperationException("Unexpected prior path segment.")
+            };
 
         public static ODataPath ConcatenateSegment(this ODataPath pathToProperties, IEdmStructuralProperty p) =>
             new ODataPath(pathToProperties.Concat(Enumerable.Repeat(
@@ -120,11 +139,11 @@ namespace ODataExampleGenerator
                   && primitive.PrimitiveKind == EdmPrimitiveTypeKind.Stream));
 
         public static T GetAnnotationValue<T>(
-            this IEdmProperty property,
+            this IEdmVocabularyAnnotatable annotatable,
             IEdmModel model,
             string term)
             where T : class, IEdmExpression =>
-            property.VocabularyAnnotations(model).FirstOrDefault(a =>
+            annotatable.VocabularyAnnotations(model).FirstOrDefault(a =>
                 a.Term.FullName().Equals(term, StringComparison.OrdinalIgnoreCase))?.Value as T;
 
         private static bool IsBooleanExpressionWithValue(IEdmExpression expression, bool value) =>
