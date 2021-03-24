@@ -1,4 +1,8 @@
-﻿using Microsoft.OData;
+﻿// <copyright file="IValueGenerator.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using Microsoft.OData;
 using Microsoft.OData.Edm;
 
 namespace ODataExampleGenerator

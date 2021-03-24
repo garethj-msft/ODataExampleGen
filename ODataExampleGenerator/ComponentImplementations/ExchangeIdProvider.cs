@@ -1,4 +1,8 @@
-﻿using System;
+﻿// <copyright file="ExchangeIdProvider.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;

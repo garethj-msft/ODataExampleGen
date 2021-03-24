@@ -1,4 +1,8 @@
-﻿using System;
+﻿// <copyright file="ProgramOptionsExtractor.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System;
 using System.Linq;
 using Microsoft.OData.Edm;
 using ODataExampleGenerator;

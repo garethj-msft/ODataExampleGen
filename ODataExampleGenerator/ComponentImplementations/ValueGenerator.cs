@@ -1,4 +1,8 @@
-﻿using System;
+﻿// <copyright file="ValueGenerator.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.OData;

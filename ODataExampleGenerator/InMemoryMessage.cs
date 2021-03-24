@@ -1,8 +1,6 @@
-﻿//---------------------------------------------------------------------
-// <copyright file="InMemoryMessage.cs" company="Microsoft">
-//      Copyright (C) Microsoft Corporation. All rights reserved. See License.txt in the project root for license information.
+﻿// <copyright file="InMemoryMessage.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
 // </copyright>
-//---------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;

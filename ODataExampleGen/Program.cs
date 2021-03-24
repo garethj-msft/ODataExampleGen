@@ -1,4 +1,8 @@
-﻿using System.ComponentModel;
+﻿// <copyright file="Program.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System.ComponentModel;
 using System.Net.Http;
 
 namespace ODataExampleGen
@@ -30,7 +34,7 @@ namespace ODataExampleGen
                     ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute),
                 };
 
-                generationParameters.LoadModel(options.CsdlFile);
+                generationParameters.Model = CsdlLoader.LoadModel(options.CsdlFile);
 
                 try
                 {

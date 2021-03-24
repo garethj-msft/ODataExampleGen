@@ -1,4 +1,8 @@
-﻿using System;
+﻿// <copyright file="ODataExtensions.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;

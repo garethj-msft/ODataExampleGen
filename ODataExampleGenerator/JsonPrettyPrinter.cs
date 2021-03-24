@@ -1,4 +1,8 @@
-﻿namespace ODataExampleGenerator
+﻿// <copyright file="JsonPrettyPrinter.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+namespace ODataExampleGenerator
 {
     using System;
     using System.IO;

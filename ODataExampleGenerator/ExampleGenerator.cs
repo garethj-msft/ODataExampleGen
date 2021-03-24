@@ -1,4 +1,7 @@
-﻿
+﻿// <copyright file="ExampleGenerator.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
 namespace ODataExampleGenerator
 {
     using System;

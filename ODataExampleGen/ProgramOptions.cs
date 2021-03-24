@@ -1,4 +1,8 @@
-﻿namespace ODataExampleGen
+﻿// <copyright file="ProgramOptions.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+namespace ODataExampleGen
 {
     using System.Collections.Generic;
     using CommandLine;

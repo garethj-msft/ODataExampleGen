@@ -1,4 +1,8 @@
-﻿using System;
+﻿// <copyright file="GuidIdProvider.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System;
 using System.Collections.Generic;
 using System.Text;
 using ODataExampleGenerator.ComponentInterfaces;
