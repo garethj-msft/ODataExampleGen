@@ -11,7 +11,7 @@ namespace ODataExampleGenerator.ComponentInterfaces
     /// <summary>
     /// Interface for components that produce ID values.
     /// </summary>
-    interface IIdProvider
+    internal interface IIdProvider
     {
         /// <summary>
         /// Name of the provider.

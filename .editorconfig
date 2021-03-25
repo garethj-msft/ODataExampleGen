@@ -61,9 +61,9 @@ csharp_prefer_braces = true:suggestion
 #Style - expression bodied member options
 
 #prefer block bodies for constructors
-csharp_style_expression_bodied_constructors = false:suggestion
+csharp_style_expression_bodied_constructors = false:warning
 #prefer block bodies for methods
-csharp_style_expression_bodied_methods = false:suggestion
+# csharp_style_expression_bodied_methods =  false:suggestion
 #prefer expression-bodied members for properties
 csharp_style_expression_bodied_properties = true:suggestion
 
@@ -82,21 +82,21 @@ dotnet_style_object_initializer = true:suggestion
 #Style - implicit and explicit types
 
 #prefer var over explicit type in all cases, unless overridden by another code style rule
-csharp_style_var_elsewhere = true:suggestion
+csharp_style_var_elsewhere = false:warning
 #prefer var is used to declare variables with built-in system types such as int
-csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_for_built_in_types = false:suggestion
 #prefer var when the type is already mentioned on the right-hand side of a declaration expression
 csharp_style_var_when_type_is_apparent = true:suggestion
 
 #Style - language keyword and framework type options
 
 #prefer the language keyword for local variables, method parameters, and class members, instead of the type name, for types that have a keyword to represent them
-dotnet_style_predefined_type_for_locals_parameters_members = true:suggestion
+dotnet_style_predefined_type_for_locals_parameters_members = true:error
 
 #Style - Miscellaneous preferences
 
 #prefer local functions over anonymous functions
-csharp_style_pattern_local_over_anonymous_function = true:suggestion
+csharp_style_pattern_local_over_anonymous_function = false:suggestion
 
 #Style - modifier options
 
@@ -115,11 +115,12 @@ csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
 
 #Style - qualification options
 
-#prefer fields to be prefaced with this. in C# or Me. in Visual Basic
-dotnet_style_qualification_for_field = true:suggestion
-#prefer methods to be prefaced with this. in C# or Me. in Visual Basic
-dotnet_style_qualification_for_method = true:suggestion
-#prefer properties not to be prefaced with this. or Me. in Visual Basic
-dotnet_style_qualification_for_property = false:suggestion
+#prefer members to be prefaced with this. in C# or Me. in Visual Basic
+dotnet_style_qualification_for_field = true:warning
+dotnet_style_qualification_for_method = true:warning
+dotnet_style_qualification_for_property = true:warning
+dotnet_style_qualification_for_event = true:warning
 
 file_header_template = <copyright file="{fileName}" company="Microsoft">\r\n© Microsoft. All rights reserved.\r\n</copyright>
+
+dotnet_code_quality.api_surface = public,internal: warning

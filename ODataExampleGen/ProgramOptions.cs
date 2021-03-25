@@ -16,8 +16,8 @@ namespace ODataExampleGen
         [Option('m', "method", Required = true, HelpText = "Generate output for the given HTTP method.")]
         public string Method { get; set; }
 
-        [Option('u', "uri", Required = true, HelpText = "URI to generate an example to POST to.")]
-        public string UriToPost { get; set; }
+        [Option('u', "uri", Required = true, HelpText = "URI to generate an example to POST to/GET from etc.")]
+        public string UriForMethod { get; set; }
 
         [Option('b', "baseUri", Required = false, HelpText = "Base URI for the API.",
             Default = "https://graph.microsoft.com/beta/")]
@@ -34,5 +34,9 @@ namespace ODataExampleGen
         [Option('r', "primitiveValue", Required = false,
             HelpText = "Property:PrimitiveValue pairs for resolving choices in primitive property values.")]
         public IEnumerable<string> PrimitiveValuePairs { get; set; }
+
+        [Option('i', "idProvider", Required = false,
+            HelpText = "Property:IdProvider pairs for resolving which provider used to generate ids in string property values ending with id/Id.  Use @default as the property name for a fallback choice.")]
+        public IEnumerable<string> IdProviderPairs { get; set; }
     }
 }

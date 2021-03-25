@@ -9,9 +9,9 @@ using ODataExampleGenerator.ComponentInterfaces;
 
 namespace ODataExampleGenerator.ComponentImplementations
 {
-    class GuidIdProvider : IIdProvider
+    internal class GuidIdProvider : IIdProvider
     {
-        public string Name => nameof(GuidIdProvider);
+        public string Name => "Guid";
 
         public string GetNewId()
         {

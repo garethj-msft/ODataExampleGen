@@ -37,7 +37,7 @@ namespace ODataExampleGenerator
             else
             {
                 var errorMessages = new StringBuilder();
-                foreach (var error in errors)
+                foreach (EdmError error in errors)
                 {
                     errorMessages.AppendLine(error.ErrorMessage);
                 }

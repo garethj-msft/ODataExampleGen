@@ -3,6 +3,7 @@
 // </copyright>
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.OData.Edm;
 using ODataExampleGenerator;
@@ -18,13 +19,13 @@ namespace ODataExampleGen
         {
             foreach (string optionPair in options.PropertyTypePairs)
             {
-                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                string[] pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
                 if (pairTerms.Length != 2)
                 {
                     throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'propertyName:typeName'.");
                 }
 
-                var declared = FindQualifiedTypeByName(pairTerms[1], generationParameters);
+                IEdmType declared = FindQualifiedTypeByName(pairTerms[1], generationParameters);
 
                 if (declared == null)
                 {
@@ -39,7 +40,7 @@ namespace ODataExampleGen
         {
             foreach (string optionPair in options.EnumValuePairs)
             {
-                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                string[] pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
                 if (pairTerms.Length != 2)
                 {
                     throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'propertyName:enumValue'.");
@@ -60,7 +61,7 @@ namespace ODataExampleGen
         {
             foreach (string optionPair in options.PrimitiveValuePairs)
             {
-                var pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                string[] pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
                 if (pairTerms.Length != 2)
                 {
                     throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'propertyName:primitiveValue'.");
@@ -70,11 +71,25 @@ namespace ODataExampleGen
             }
         }
 
+        public static void PopulateChosenIdProviders(ProgramOptions options, GenerationParameters generationParameters)
+        {
+            foreach (string optionPair in options.IdProviderPairs)
+            {
+                string[] pairTerms = optionPair.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                if (pairTerms.Length != 2)
+                {
+                    throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'idPropertyName:idProviderName'.");
+                }
+
+                generationParameters.ChosenIdProviders[pairTerms[0]] = pairTerms[1];
+            }
+        }
+
         private static IEdmEnumMember FindEnumValueByName(string propertyName, string enumValueString, GenerationParameters generationParameters)
         {
-            var members = from s in generationParameters.Model.SchemaElements
+           IEnumerable<IEdmEnumMember> members = from s in generationParameters.Model.SchemaElements
                 where s.SchemaElementKind == EdmSchemaElementKind.TypeDefinition && s is IEdmStructuredType
-                let t = (IEdmStructuredType) s
+                let t = (IEdmStructuredType)s
                 let prop1 = t.DeclaredProperties.FirstOrDefault(p =>
                     p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase) &&
                     p.Type.IsEnum() &&
@@ -95,7 +110,7 @@ namespace ODataExampleGen
         private static IEdmType FindQualifiedTypeByName(string typeName, GenerationParameters generationParameters)
         {
             IEdmType declared = null;
-            foreach (var aNamespace in generationParameters.Model.DeclaredNamespaces)
+            foreach (string aNamespace in generationParameters.Model.DeclaredNamespaces)
             {
                 declared = generationParameters.Model.FindDeclaredType($"{aNamespace}.{typeName}");
                 if (declared != null)

@@ -39,8 +39,7 @@ namespace ODataExampleGenerator
                 segments.Add(new NavigationPropertySegment(p, null));
                 var propPath = new ODataPath(segments);
                 return PathSegmentToPathExpressionTranslator.GetPathExpression(
-                    propPath,
-                    parameters).TrimStart('/');
+                    propPath).TrimStart('/');
             }
 
             IEdmVocabularyAnnotatable root =
@@ -59,7 +58,7 @@ namespace ODataExampleGenerator
                     return true;
                 }
 
-                var readOnly =
+                bool readOnly =
                     // Structural Property has a Computed annotation of its own
                     p is IEdmStructuralProperty &&
                     p.VocabularyAnnotations(parameters.Model).Any(a =>

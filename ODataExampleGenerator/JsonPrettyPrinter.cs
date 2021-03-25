@@ -40,11 +40,11 @@ namespace ODataExampleGenerator
 
         private static void WriteJsonObject(Utf8JsonWriter outWriter, JsonElement element, string[] skipProperties)
         {
-            var nodes = element.EnumerateObject()
+            System.Collections.Generic.IEnumerable<JsonProperty> nodes = element.EnumerateObject()
                 .Where(e => !skipProperties.Contains(e.Name, StringComparer.OrdinalIgnoreCase));
 
             outWriter.WriteStartObject();
-            foreach (var node in nodes)
+            foreach (JsonProperty node in nodes)
             {
                 outWriter.WritePropertyName(node.Name);
                 WriteJsonElement(outWriter, node.Value, skipProperties);
@@ -72,7 +72,7 @@ namespace ODataExampleGenerator
         private static void WriteJsonArray(Utf8JsonWriter outWriter, JsonElement element, string[] skipProperties)
         {
             outWriter.WriteStartArray();
-            foreach (var arrayNode in element.EnumerateArray())
+            foreach (JsonElement arrayNode in element.EnumerateArray())
             {
                 WriteJsonElement(outWriter, arrayNode, skipProperties);
             }

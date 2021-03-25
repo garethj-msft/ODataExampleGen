@@ -10,14 +10,14 @@ using ODataExampleGenerator.ComponentInterfaces;
 
 namespace ODataExampleGenerator.ComponentImplementations
 {
-    class ExchangeIdProvider : IIdProvider
+    internal class ExchangeIdProvider : IIdProvider
     {
-        public string Name => nameof(ExchangeIdProvider);
+        public string Name => "Exchange";
 
         public string GetNewId()
         {
             string source = Guid.NewGuid().ToString("D") + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture);
-            var sourceBytes = System.Text.Encoding.UTF8.GetBytes(source);
+            byte[] sourceBytes = System.Text.Encoding.UTF8.GetBytes(source);
             return System.Convert.ToBase64String(sourceBytes);
         }
     }

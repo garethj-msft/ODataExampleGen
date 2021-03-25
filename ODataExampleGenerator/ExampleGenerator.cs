@@ -31,7 +31,7 @@ using Microsoft.Extensions.DependencyInjection;
         private readonly GenerationParameters generationParameters;
         private ODataPath path;
         private SelectExpandClause selectExpand;
-        private IHost host;
+        private readonly IHost host;
 
         public ExampleGenerator(GenerationParameters generationParameters)
         {
@@ -68,9 +68,9 @@ using Microsoft.Extensions.DependencyInjection;
             }
 
             IEdmNavigationSource source = this.path.LastSegment.GetNavigationSource();
-            IEdmStructuredType propertyType = source.Type.AsElementType() as IEdmStructuredType;
+            var propertyType = source.Type.AsElementType() as IEdmStructuredType;
 
-            var runRules = this.generationParameters.HttpMethod switch
+            (UrlMode urlMode, string responseStatus, bool requiresResponse, bool requiresRequest, bool forceResponseSingle) = this.generationParameters.HttpMethod switch
             {
                 { } m when m == HttpMethod.Get => (urlMode: UrlMode.Neutral, responseStatus: "200 OK", requiresResponse: true, requiresRequest: false, forceResponseSingle: false),
                 { } m when m == HttpMethod.Post => (urlMode: UrlMode.Collection, responseStatus: "201 CREATED", requiresResponse: true, requiresRequest: true, forceResponseSingle: true),
@@ -80,31 +80,31 @@ using Microsoft.Extensions.DependencyInjection;
                 { } m => throw new InvalidOperationException($"Unsupported HTTP method {m}."),
             };
 
-            if (runRules.urlMode == UrlMode.Collection &&
+            if (urlMode == UrlMode.Collection &&
                 this.path.LastSegment.EdmType.TypeKind != EdmTypeKind.Collection)
             {
                 throw new InvalidOperationException($"HTTP method {this.generationParameters.HttpMethod} requires a collection-valued URL.");
             }
 
-            if (runRules.urlMode == UrlMode.Single &&
+            if (urlMode == UrlMode.Single &&
                 this.path.LastSegment.EdmType.TypeKind == EdmTypeKind.Collection)
             {
                 throw new InvalidOperationException($"HTTP method {this.generationParameters.HttpMethod} requires a single-valued URL.");
             }
 
-            StringBuilder output = new StringBuilder();
+            var output = new StringBuilder();
             output.AppendLine($"{this.generationParameters.HttpMethod} {incomingUri}");
-            if (runRules.requiresRequest)
+            if (requiresRequest)
             {
                 this.generationParameters.GenerationStyle = GenerationStyle.Request;
-                var request = this.WritePayload(source, propertyType, true);
+                string request = this.WritePayload(source, propertyType, true);
                 output.AppendLine(request); 
             }
-            output.AppendLine(runRules.responseStatus);
-            if (runRules.requiresResponse)
+            output.AppendLine(responseStatus);
+            if (requiresResponse)
             {
                 this.generationParameters.GenerationStyle = GenerationStyle.Response;
-                var response = this.WritePayload(source, propertyType, runRules.forceResponseSingle);
+                string response = this.WritePayload(source, propertyType, forceResponseSingle);
                 output.AppendLine(response);
             }
 
@@ -142,13 +142,13 @@ using Microsoft.Extensions.DependencyInjection;
             }
             else
             {
-                IEdmEntitySetBase entitySet = source as IEdmEntitySetBase;
+                var entitySet = source as IEdmEntitySetBase;
                 ODataWriter resWriter =
                     writer.CreateODataResourceSetWriter(entitySet, propertyType);
                 this.WriteResourceSet(resWriter, source, this.path);
             }
 
-            var output = JsonPrettyPrinter.PrettyPrint(stream.ToArray(), this.generationParameters);
+            string output = JsonPrettyPrinter.PrettyPrint(stream.ToArray(), this.generationParameters);
             return output;
         }
 
@@ -157,7 +157,7 @@ using Microsoft.Extensions.DependencyInjection;
             IEdmNavigationSource navSource,
             ODataPath pathToResource)
         {
-            IEdmStructuredType structuredType = navSource.Type.AsElementType() as IEdmStructuredType;
+            var structuredType = navSource.Type.AsElementType() as IEdmStructuredType;
             this.WriteResourceImpl(resWriter, pathToResource, structuredType, navSource.Name);
         }
         private void WriteResource(
@@ -165,7 +165,7 @@ using Microsoft.Extensions.DependencyInjection;
             IEdmStructuralProperty property,
             ODataPath pathToResource)
         {
-            IEdmStructuredType structuredType = property.Type.Definition.AsElementType() as IEdmStructuredType;
+            var structuredType = property.Type.Definition.AsElementType() as IEdmStructuredType;
             this.WriteResourceImpl(resWriter, pathToResource, structuredType, property.Name);
         }
 
@@ -174,7 +174,7 @@ using Microsoft.Extensions.DependencyInjection;
             IEdmNavigationSource navSource,
             ODataPath pathToResources)
         {
-            IEdmStructuredType structuredType = navSource.Type.AsElementType() as IEdmStructuredType;
+            var structuredType = navSource.Type.AsElementType() as IEdmStructuredType;
 
             IEdmVocabularyAnnotatable annotatable = null;
             if (navSource is IEdmContainedEntitySet contained)
@@ -195,7 +195,7 @@ using Microsoft.Extensions.DependencyInjection;
             IEdmStructuralProperty property,
             ODataPath pathToResources)
         {
-            IEdmStructuredType structuredType = property.Type.Definition.AsElementType() as IEdmStructuredType;
+            var structuredType = property.Type.Definition.AsElementType() as IEdmStructuredType;
             this.WriteResourceSetImpl(resWriter, pathToResources, structuredType, property, property.Name);
         }
 
@@ -293,7 +293,7 @@ using Microsoft.Extensions.DependencyInjection;
             foreach (IEdmNavigationProperty navProp in properties)
             {
                 bool isCollection = navProp.Type.IsCollection();
-                var binding = bindingsHost.FindNavigationPropertyBindings(navProp).FirstOrDefault();
+                IEdmNavigationPropertyBinding binding = bindingsHost.FindNavigationPropertyBindings(navProp).FirstOrDefault();
                 if (binding == null)
                 {
                     // If there's no binding we can't determine what the link should be.
@@ -305,7 +305,7 @@ using Microsoft.Extensions.DependencyInjection;
 
                 for (int i = 0; i < (navProp.Type.IsCollection() ? 2 : 1); i++)
                 {
-                    var link = this.ConstructEntityReferenceLink(binding);
+                    ODataEntityReferenceLink link = this.ConstructEntityReferenceLink(binding);
                     resWriter.WriteEntityReferenceLink(link);
                 }
 
@@ -355,7 +355,7 @@ using Microsoft.Extensions.DependencyInjection;
                 uriBuilder.Append($"/{segmentsList[segment]}");
                 if (targetCursor is IEdmCollectionType)
                 {
-                    var valueGenerator = this.host.Services.GetRequiredService<IValueGenerator>();
+                    IValueGenerator valueGenerator = this.host.Services.GetRequiredService<IValueGenerator>();
                     uriBuilder.Append($"/id{valueGenerator.GetNextMonotonicId()}");
                 }
             }
@@ -429,7 +429,7 @@ using Microsoft.Extensions.DependencyInjection;
             string propertyName)
         {
             var potentialTypes = this.ChooseDerivedStructuralTypeList(propertyType, propertyName).ToList();
-            var valueGenerator = this.host.Services.GetRequiredService<IValueGenerator>();
+            IValueGenerator valueGenerator = this.host.Services.GetRequiredService<IValueGenerator>();
             return potentialTypes[valueGenerator.GetNextRandom(potentialTypes.Count)];
         }
 
@@ -437,7 +437,7 @@ using Microsoft.Extensions.DependencyInjection;
             IEdmStructuredType propertyType,
             string propertyName)
         {
-            if (this.generationParameters.ChosenTypes.TryGetValue(propertyName, out var chosenType))
+            if (this.generationParameters.ChosenTypes.TryGetValue(propertyName, out IEdmStructuredType chosenType))
             {
                 propertyType = chosenType;
             }
@@ -469,8 +469,8 @@ using Microsoft.Extensions.DependencyInjection;
                 this.generationParameters.GenerationStyle == GenerationStyle.Request)
             {
                 // Just pick one simple property (plus the id, which is required for serialization) to demonstrate patch.
-                var single = properties.FirstOrDefault(p => !p.IsKey() && p.Type.IsPrimitive());
-                var key = properties.FirstOrDefault(p => p.IsKey());
+                IEdmStructuralProperty single = properties.FirstOrDefault(p => !p.IsKey() && p.Type.IsPrimitive());
+                IEdmStructuralProperty key = properties.FirstOrDefault(p => p.IsKey());
                 properties = single != null ? Enumerable.Repeat(single, 1) : Enumerable.Empty<IEdmStructuralProperty>();
                 if (key != null)
                 {
@@ -478,7 +478,7 @@ using Microsoft.Extensions.DependencyInjection;
                 }
             }
 
-            var valueGenerator = this.host.Services.GetRequiredService<IValueGenerator>();
+            IValueGenerator valueGenerator = this.host.Services.GetRequiredService<IValueGenerator>();
             var odataProps = new List<ODataProperty>(
                 properties.Select(p => valueGenerator.GetExamplePrimitiveProperty(hostType, p)));
 

@@ -12,7 +12,7 @@ namespace ODataExampleGen
     using CommandLine;
     using ODataExampleGenerator;
 
-    class Program
+    public class Program
     {
         public static int Main(string[] args)
         {
@@ -49,9 +49,10 @@ namespace ODataExampleGen
                 ProgramOptionsExtractor.PopulateChosenTypes(options, generationParameters);
                 ProgramOptionsExtractor.PopulateChosenEnums(options, generationParameters);
                 ProgramOptionsExtractor.PopulateChosenPrimitives(options, generationParameters);
+                ProgramOptionsExtractor.PopulateChosenIdProviders(options, generationParameters);
 
                 var exampleGenerator = new ExampleGenerator(generationParameters);
-                string output = exampleGenerator.CreateExample(options.UriToPost);
+                string output = exampleGenerator.CreateExample(options.UriForMethod);
                 Console.WriteLine(output);
                 return 0;
             }

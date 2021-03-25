@@ -30,7 +30,7 @@ namespace ODataExampleGenerator.ComponentImplementations
             IEnumerable<IIdProvider> idProviders)
         {
             this.GenerationParameters = generationParameters;
-            IdProviders = idProviders;
+            this.IdProviders = idProviders;
         }
 
         public ODataProperty GetExamplePrimitiveProperty(
@@ -67,7 +67,7 @@ namespace ODataExampleGenerator.ComponentImplementations
             {
                 if (p.Type.IsEnum())
                 {
-                    var usefulMember = this.GetExampleEnumValue(p);
+                    string usefulMember = this.GetExampleEnumValue(p);
                     return new ODataEnumValue(usefulMember);
                 }
                 else
@@ -103,7 +103,7 @@ namespace ODataExampleGenerator.ComponentImplementations
                 EdmPrimitiveTypeKind.Int32 => this.Random.Next(10),
                 EdmPrimitiveTypeKind.Int64 => (long)this.Random.Next(10),
                 EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(this.NextDouble(10.0)),
-                EdmPrimitiveTypeKind.String when PropertyIsId(p) => GetIdValue(p, this.MonotonicId++),
+                EdmPrimitiveTypeKind.String when this.PropertyIsId(p) => this.GetIdValue(p, this.MonotonicId++),
                 EdmPrimitiveTypeKind.String => $"{p.Name}-{this.GetPropertyTag(p)}",
                 _ => throw new InvalidOperationException($"Unknown primitive type '{((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind}'."),
 
@@ -112,7 +112,7 @@ namespace ODataExampleGenerator.ComponentImplementations
 
         private object GetExamplePrimitiveValueArray(IEdmStructuralProperty p)
         {
-            var now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
             return new ODataCollectionValue {Items = ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
             {
                 EdmPrimitiveTypeKind.Boolean => new object[]{ true, false}.AsEnumerable(),
@@ -138,11 +138,18 @@ namespace ODataExampleGenerator.ComponentImplementations
 
         private string GetIdValue(IEdmStructuralProperty p, int monotonicId)
         {
-            // TODO: Choose the correct id provider from @default, specific.
             // TODO: align the id that came in for an individual GET call with the *first* id value.
             if (!this.IdValues.TryGetValue(monotonicId, out string idValue))
             {
-                idValue = this.IdProviders.Last().GetNewId();
+                if (!this.GenerationParameters.ChosenIdProviders.TryGetValue(p.Name, out string providerName))
+                {
+                    _ = this.GenerationParameters.ChosenIdProviders.TryGetValue("@default", out providerName);
+                }
+
+                IIdProvider idProvider = (!string.IsNullOrWhiteSpace(providerName) ? this.IdProviders.SingleOrDefault(p => p.Name.EqualsOic(providerName)) : null) ?? this.IdProviders.First();
+                {
+                    idValue = idProvider.GetNewId();
+                }
                 this.IdValues[monotonicId] = idValue;
             }
             return idValue;
