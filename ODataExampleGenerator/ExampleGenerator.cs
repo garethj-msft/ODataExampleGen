@@ -493,6 +493,7 @@ using Microsoft.Extensions.DependencyInjection;
         {
             serviceCollection.AddSingleton<IIdProvider, GuidIdProvider>();
             serviceCollection.AddSingleton<IIdProvider, ExchangeIdProvider>();
+            serviceCollection.AddSingleton<IIdProvider, OdspIdProvider>();
             serviceCollection.AddSingleton<GenerationParameters>(_ => this.generationParameters);
             serviceCollection.AddSingleton<IValueGenerator, ValueGenerator>();
         }

@@ -38,7 +38,7 @@ namespace ODataExampleGenerator.ComponentImplementations
             IEdmStructuralProperty p)
         {
             bool isChosenValue = this.GenerationParameters.ChosenPrimitives.TryGetValue(p.Name, out string primitiveString);
-            object primitive = !isChosenValue ? this.GetExampleStructuralValue(p) : this.GetSuppliedStructuralValue(p, primitiveString);
+            object primitive = !isChosenValue ? this.GetExampleStructuralValue(hostType, p) : this.GetSuppliedStructuralValue(p, primitiveString);
             var returnProp = new ODataProperty {Name = p.Name, Value = primitive};
 
             if (!p.Type.IsEnum())
@@ -48,7 +48,7 @@ namespace ODataExampleGenerator.ComponentImplementations
             return returnProp;
         }
 
-        private object GetExampleStructuralValue(IEdmStructuralProperty p)
+        private object GetExampleStructuralValue(IEdmStructuredType hostType, IEdmStructuralProperty p)
         {
             if (p.Type.IsCollection())
             {
@@ -72,7 +72,7 @@ namespace ODataExampleGenerator.ComponentImplementations
                 }
                 else
                 {
-                    return this.GetExampleScalarPrimitiveValue(p);
+                    return this.GetExampleScalarPrimitiveValue(hostType, p);
                 }
             }
         }
@@ -88,7 +88,7 @@ namespace ODataExampleGenerator.ComponentImplementations
             return usefulMember;
         }
 
-        private object GetExampleScalarPrimitiveValue(IEdmStructuralProperty p)
+        private object GetExampleScalarPrimitiveValue(IEdmStructuredType hostType, IEdmStructuralProperty p)
         {
             return ((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind switch
             {
@@ -103,7 +103,7 @@ namespace ODataExampleGenerator.ComponentImplementations
                 EdmPrimitiveTypeKind.Int32 => this.Random.Next(10),
                 EdmPrimitiveTypeKind.Int64 => (long)this.Random.Next(10),
                 EdmPrimitiveTypeKind.Duration => TimeSpan.FromHours(this.NextDouble(10.0)),
-                EdmPrimitiveTypeKind.String when this.PropertyIsId(p) => this.GetIdValue(p, this.MonotonicId++),
+                EdmPrimitiveTypeKind.String when this.PropertyIsId(p) => this.GetIdValue(hostType, p, this.MonotonicId++),
                 EdmPrimitiveTypeKind.String => $"{p.Name}-{this.GetPropertyTag(p)}",
                 _ => throw new InvalidOperationException($"Unknown primitive type '{((IEdmPrimitiveType)p.Type.Definition.AsElementType()).PrimitiveKind}'."),
 
@@ -136,7 +136,7 @@ namespace ODataExampleGenerator.ComponentImplementations
             return p.Name.Equals("id", StringComparison.Ordinal) || p.Name.EndsWith("Id", StringComparison.Ordinal);
         }
 
-        private string GetIdValue(IEdmStructuralProperty p, int monotonicId)
+        private string GetIdValue(IEdmStructuredType hostType, IEdmStructuralProperty p, int monotonicId)
         {
             // TODO: align the id that came in for an individual GET call with the *first* id value.
             if (!this.IdValues.TryGetValue(monotonicId, out string idValue))
@@ -148,7 +148,7 @@ namespace ODataExampleGenerator.ComponentImplementations
 
                 IIdProvider idProvider = (!string.IsNullOrWhiteSpace(providerName) ? this.IdProviders.SingleOrDefault(p => p.Name.EqualsOic(providerName)) : null) ?? this.IdProviders.First();
                 {
-                    idValue = idProvider.GetNewId();
+                    idValue = idProvider.GetNewId(hostType);
                 }
                 this.IdValues[monotonicId] = idValue;
             }

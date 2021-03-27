@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Microsoft.OData.Edm;
 using ODataExampleGenerator.ComponentInterfaces;
 
 namespace ODataExampleGenerator.ComponentImplementations
@@ -13,7 +14,7 @@ namespace ODataExampleGenerator.ComponentImplementations
     {
         public string Name => "Guid";
 
-        public string GetNewId()
+        public string GetNewId(IEdmStructuredType _)
         {
             return Guid.NewGuid().ToString("D");
         }

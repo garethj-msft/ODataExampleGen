@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Microsoft.OData.Edm;
 
 namespace ODataExampleGenerator.ComponentInterfaces
 {
@@ -19,9 +20,8 @@ namespace ODataExampleGenerator.ComponentInterfaces
         string Name { get; }
 
         /// <summary>
-        /// Get a brand new Id.
+        /// Get a brand new Id for an instance of the given host type.
         /// </summary>
-        /// <returns></returns>
-        string GetNewId();
+        string GetNewId(IEdmStructuredType host);
     }
 }
