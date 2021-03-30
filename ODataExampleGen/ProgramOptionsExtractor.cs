@@ -15,7 +15,18 @@ namespace ODataExampleGen
     /// </summary>
     public static class ProgramOptionsExtractor
     {
-        public static void PopulateChosenTypes(ProgramOptions options, GenerationParameters generationParameters)
+        /// <summary>
+        /// Process the more complicated options into actionable structures.
+        /// </summary>
+        public static void PopulateComplexOptions(ProgramOptions options, GenerationParameters generationParameters)
+        {
+            PopulateChosenTypes(options, generationParameters);
+            PopulateChosenEnums(options, generationParameters);
+            PopulateChosenPrimitives(options, generationParameters);
+            PopulateChosenIdProviders(options, generationParameters);
+        }
+
+        private static void PopulateChosenTypes(ProgramOptions options, GenerationParameters generationParameters)
         {
             foreach (string optionPair in options.PropertyTypePairs)
             {
@@ -36,7 +47,7 @@ namespace ODataExampleGen
             }
         }
 
-        public static void PopulateChosenEnums(ProgramOptions options, GenerationParameters generationParameters)
+        private static void PopulateChosenEnums(ProgramOptions options, GenerationParameters generationParameters)
         {
             foreach (string optionPair in options.EnumValuePairs)
             {
@@ -57,7 +68,7 @@ namespace ODataExampleGen
             }
         }
 
-        public static void PopulateChosenPrimitives(ProgramOptions options, GenerationParameters generationParameters)
+        private static void PopulateChosenPrimitives(ProgramOptions options, GenerationParameters generationParameters)
         {
             foreach (string optionPair in options.PrimitiveValuePairs)
             {
@@ -67,11 +78,18 @@ namespace ODataExampleGen
                     throw new InvalidOperationException($"Option '{optionPair}' is malformed, must be 'propertyName:primitiveValue'.");
                 }
 
-                generationParameters.ChosenPrimitives[pairTerms[0]] = pairTerms[1];
+                if (string.Equals(pairTerms[1], "@skip", StringComparison.OrdinalIgnoreCase))
+                {
+                    generationParameters.SkippedProperties.Add(pairTerms[0]);
+                }
+                else
+                {
+                    generationParameters.ChosenPrimitives[pairTerms[0]] = pairTerms[1];
+                }
             }
         }
 
-        public static void PopulateChosenIdProviders(ProgramOptions options, GenerationParameters generationParameters)
+        private static void PopulateChosenIdProviders(ProgramOptions options, GenerationParameters generationParameters)
         {
             foreach (string optionPair in options.IdProviderPairs)
             {

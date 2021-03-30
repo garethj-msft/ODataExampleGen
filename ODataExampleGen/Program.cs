@@ -2,13 +2,14 @@
 // © Microsoft. All rights reserved.
 // </copyright>
 
-using System.ComponentModel;
+using System.Linq;
 using System.Net.Http;
 
 namespace ODataExampleGen
 {
     using System;
     using System.Diagnostics;
+    using System.Linq;
     using CommandLine;
     using ODataExampleGenerator;
 
@@ -32,6 +33,7 @@ namespace ODataExampleGen
                 var generationParameters = new GenerationParameters
                 {
                     ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute),
+                    DeepInserts = options.DeepInserts.ToList(),
                 };
 
                 generationParameters.Model = CsdlLoader.LoadModel(options.CsdlFile);
@@ -46,10 +48,7 @@ namespace ODataExampleGen
                 }
 
                 // Process the more complicated options into actionable structures.
-                ProgramOptionsExtractor.PopulateChosenTypes(options, generationParameters);
-                ProgramOptionsExtractor.PopulateChosenEnums(options, generationParameters);
-                ProgramOptionsExtractor.PopulateChosenPrimitives(options, generationParameters);
-                ProgramOptionsExtractor.PopulateChosenIdProviders(options, generationParameters);
+                ProgramOptionsExtractor.PopulateComplexOptions(options, generationParameters);
 
                 var exampleGenerator = new ExampleGenerator(generationParameters);
                 string output = exampleGenerator.CreateExample(options.UriForMethod);
@@ -66,5 +65,7 @@ namespace ODataExampleGen
                 return 1;
             }
         }
+
+       
     }
 }

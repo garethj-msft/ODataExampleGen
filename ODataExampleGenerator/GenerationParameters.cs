@@ -38,6 +38,15 @@ namespace ODataExampleGenerator
         public IDictionary<string, string> ChosenIdProviders { get; } =
             new Dictionary<string, string>();
 
+        /// <summary>
+        /// Navigation properties that should have a deep insert gemerated for them for POST/PUT/PATCH requests.
+        /// </summary>
+        public IList<string> DeepInserts { get; set; }
+
+        /// <summary>
+        /// Properties that should be skipped in the generated requests.
+        /// </summary>
+        public IList<string> SkippedProperties { get; } = new List<string>();
     }
 
     public enum GenerationStyle

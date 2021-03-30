@@ -250,6 +250,9 @@ using Microsoft.Extensions.DependencyInjection;
                 navigationProperties = navigationProperties.FilterReadOnly(pathToResource, this.generationParameters);
             }
 
+            structuralProperties = structuralProperties.FilterSkipped(pathToResource, this.generationParameters);
+            navigationProperties = navigationProperties.FilterSkipped(pathToResource, this.generationParameters);
+
             // Materialize the lists before processing them.
             var fixedStructuralProperties = structuralProperties.ToList();
             var fixedNavigationProperties = navigationProperties.ToList();
@@ -388,7 +391,8 @@ using Microsoft.Extensions.DependencyInjection;
                     bool hasExplicitExpand = pathToResources == this.path &&  // Only work at initial level.
                         (this.selectExpand?.SelectedItems?.OfType<ExpandedNavigationSelectItem>()
                             .Any(i => i.PathToNavigationProperty.LastSegment.Identifier == nestedPath.LastSegment.Identifier) ?? false);
-                    if (!(shouldAutoExpand || hasExplicitExpand))
+                    bool inDeepInserts = this.generationParameters.DeepInserts.Contains(property.Name, StringComparer.OrdinalIgnoreCase);
+                    if (!(shouldAutoExpand || hasExplicitExpand || inDeepInserts))
                     {
                         continue;
                     }

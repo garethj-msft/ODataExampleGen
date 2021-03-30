@@ -23,20 +23,24 @@ namespace ODataExampleGen
             Default = "https://graph.microsoft.com/beta/")]
         public string BaseUrl { get; set; }
 
-        [Option('p', "propertyType", Required = false,
-            HelpText = "Property:Type pairs for resolving choices in the inheritance hierarchy.")]
+        [Option('p', "propertyTypes", Required = false,
+            HelpText = "Property:Type pairs for resolving choices in the inheritance hierarchy. Use propertyName:@skip to remove a property.")]
         public IEnumerable<string> PropertyTypePairs { get; set; }
 
-        [Option('e', "enumValue", Required = false,
+        [Option('e', "enumValues", Required = false,
             HelpText = "Property:EnumValue pairs for resolving choices in enum property values.")]
         public IEnumerable<string> EnumValuePairs { get; set; }
 
-        [Option('r', "primitiveValue", Required = false,
+        [Option('r', "primitiveValues", Required = false,
             HelpText = "Property:PrimitiveValue pairs for resolving choices in primitive property values.")]
         public IEnumerable<string> PrimitiveValuePairs { get; set; }
 
-        [Option('i', "idProvider", Required = false,
+        [Option('i', "idProviders", Required = false,
             HelpText = "Property:IdProvider pairs for resolving which provider used to generate ids in string property values ending with id/Id.  Use @default as the property name for a fallback choice.")]
         public IEnumerable<string> IdProviderPairs { get; set; }
+
+        [Option('d', "deepInserts", Required = false,
+            HelpText = "Navigation property names that should be deep inserted on a PUT/POST/PATCH. Expand on GET should be specified in the uri parameter.")]
+        public IEnumerable<string> DeepInserts { get; set; }
     }
 }
