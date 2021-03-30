@@ -138,7 +138,6 @@ namespace ODataExampleGenerator.ComponentImplementations
 
         private string GetIdValue(IEdmStructuredType hostType, IEdmStructuralProperty p, int monotonicId)
         {
-            // TODO: align the id that came in for an individual GET call with the *first* id value.
             if (!this.IdValues.TryGetValue(monotonicId, out string idValue))
             {
                 if (!this.GenerationParameters.ChosenIdProviders.TryGetValue(p.Name, out string providerName))
@@ -235,6 +234,11 @@ namespace ODataExampleGenerator.ComponentImplementations
         public string GetNextId(string provider)
         {
             throw new NotImplementedException();
+        }
+
+        public void SetInitialId(string id)
+        {
+            this.IdValues[this.MonotonicId] = id;
         }
     }
 }

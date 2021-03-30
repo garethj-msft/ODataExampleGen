@@ -18,5 +18,11 @@ namespace ODataExampleGenerator
         ODataProperty GetExamplePrimitiveProperty(
            IEdmStructuredType hostType,
            IEdmStructuralProperty p);
+
+        /// <summary>
+        /// Set the id to use for the very first ID value.
+        /// </summary>
+        /// <param name="id">The id to use.</param>
+        void SetInitialId(string id);
     }
 }

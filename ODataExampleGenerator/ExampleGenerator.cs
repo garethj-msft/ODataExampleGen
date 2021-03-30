@@ -10,7 +10,7 @@ namespace ODataExampleGenerator
     using System.Linq;
     using System.Net.Http;
     using System.Text;
-using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
     using Microsoft.OData;
     using Microsoft.OData.Edm;
@@ -31,14 +31,12 @@ using Microsoft.Extensions.DependencyInjection;
         private readonly GenerationParameters generationParameters;
         private ODataPath path;
         private SelectExpandClause selectExpand;
-        private readonly IHost host;
+        private IHost host;
+        private IList<IEdmProperty> propStack = new List<IEdmProperty>();
 
         public ExampleGenerator(GenerationParameters generationParameters)
         {
             this.generationParameters = generationParameters;
-            IHostBuilder builder = Host.CreateDefaultBuilder();
-            builder.ConfigureServices(this.ConfigureServices);
-            this.host = builder.Build();
         }
 
         public string CreateExample(string incomingUri)
@@ -57,6 +55,17 @@ using Microsoft.Extensions.DependencyInjection;
                 new Uri(incomingUri, UriKind.Relative));
             this.path = parser.ParsePath();
             this.selectExpand = parser.ParseSelectAndExpand();
+
+            // Initialize the DI container
+            IHostBuilder builder = Host.CreateDefaultBuilder();
+            builder.ConfigureServices(this.ConfigureServices);
+            this.host = builder.Build();
+
+            if (this.path.LastSegment is KeySegment keySegment)
+            {
+                var valueGenerator = this.host.Services.GetRequiredService<IValueGenerator>();
+                valueGenerator.SetInitialId(keySegment.Keys.First().Value.ToString());
+            }
 
             // Get to start point of writer, using path.
             if (!(this.path.LastSegment is NavigationPropertySegment ||
@@ -378,6 +387,17 @@ using Microsoft.Extensions.DependencyInjection;
         {
             foreach (T property in properties)
             {
+                IEdmNavigationProperty navProp = property as IEdmNavigationProperty;
+                EdmTypeKind typeKind = property.Type.Definition.AsElementType().TypeKind;
+                if (typeKind.IsStructured())
+                {
+                    // Don't recurse structured types.
+                    if (this.propStack.Contains(property))
+                    {
+                        continue;
+                    }
+                }
+
                 ODataPath nestedPath = pathToResources.ConcatenateSegment(property);
 
                 // Responses to POSTS must return everything that was sent in.
@@ -401,6 +421,9 @@ using Microsoft.Extensions.DependencyInjection;
                 bool isCollection = property.Type.IsCollection();
                 resWriter.WriteStart(new ODataNestedResourceInfo {Name = property.Name, IsCollection = isCollection});
 
+                // Push onto the stack.
+                this.propStack.Add(property);
+
                 if (!isCollection)
                 {
                     if (property is IEdmStructuralProperty structural)
@@ -423,6 +446,9 @@ using Microsoft.Extensions.DependencyInjection;
                         this.WriteResourceSet(resWriter, nestedPath.LastSegment.GetNavigationSource(), nestedPath);
                     }
                 }
+
+                // Pop the stack.
+                this.propStack.RemoveAt(this.propStack.Count - 1);
 
                 resWriter.WriteEnd(); // ODataNestedResourceInfo
             }
