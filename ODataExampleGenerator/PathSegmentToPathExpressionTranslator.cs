@@ -1,4 +1,8 @@
-﻿namespace ODataExampleGenerator
+﻿// <copyright file="PathSegmentToPathExpressionTranslator.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+namespace ODataExampleGenerator
 {
     using System;
     using Microsoft.OData.Edm;
@@ -9,15 +13,12 @@
     /// </summary>
     internal sealed class PathSegmentToPathExpressionTranslator : PathSegmentTranslator<string>
     {
-        private readonly GenerationParameters parameters;
-
         /// <summary>
         /// Private constructor as static method GetPathExpression is the API to this class.
         /// </summary>
         /// <param name="parameters"></param>
-        private PathSegmentToPathExpressionTranslator(GenerationParameters parameters)
+        private PathSegmentToPathExpressionTranslator()
         {
-            this.parameters = parameters;
         }
 
         /// <summary>Translate a TypeSegment</summary>
@@ -27,7 +28,10 @@
         {
             IEdmType type = segment.EdmType;
             if (type is IEdmCollectionType edmCollectionType)
+            {
                 type = edmCollectionType.ElementType.Definition;
+            }
+
             return "/" + type.FullTypeName();
         }
 
@@ -60,7 +64,7 @@
         /// <returns>Defined by the implementer.</returns>
         public override string Translate(KeySegment segment)
         {
-            return String.Empty;
+            return string.Empty;
         }
 
         /// <summary>Translate a PropertySegment</summary>
@@ -187,13 +191,13 @@
         /// Public interface to this class.
         /// </summary>
         /// <param name="pathToProperties"></param>
-        /// <param name="parameters"></param>
+        /// 
         /// <returns></returns>
-        public static string GetPathExpression(ODataPath pathToProperties, GenerationParameters parameters)
+        public static string GetPathExpression(ODataPath pathToProperties)
         {
-            var translator = new PathSegmentToPathExpressionTranslator(parameters);
-            var pathExpressionArray = pathToProperties.WalkWith(translator);
-            var pathExpression = String.Join(String.Empty, pathExpressionArray);
+            var translator = new PathSegmentToPathExpressionTranslator();
+            System.Collections.Generic.IEnumerable<string> pathExpressionArray = pathToProperties.WalkWith(translator);
+            string pathExpression = string.Join(string.Empty, pathExpressionArray);
             return pathExpression;
         }
     }

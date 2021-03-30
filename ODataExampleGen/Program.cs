@@ -1,14 +1,19 @@
-﻿using System.ComponentModel;
+﻿// <copyright file="Program.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System.Linq;
 using System.Net.Http;
 
 namespace ODataExampleGen
 {
     using System;
     using System.Diagnostics;
+    using System.Linq;
     using CommandLine;
     using ODataExampleGenerator;
 
-    class Program
+    public class Program
     {
         public static int Main(string[] args)
         {
@@ -28,9 +33,10 @@ namespace ODataExampleGen
                 var generationParameters = new GenerationParameters
                 {
                     ServiceRoot = new Uri(options.BaseUrl, UriKind.Absolute),
+                    DeepInserts = options.DeepInserts.ToList(),
                 };
 
-                generationParameters.LoadModel(options.CsdlFile);
+                generationParameters.Model = CsdlLoader.LoadModel(options.CsdlFile);
 
                 try
                 {
@@ -42,12 +48,10 @@ namespace ODataExampleGen
                 }
 
                 // Process the more complicated options into actionable structures.
-                ProgramOptionsExtractor.PopulateChosenTypes(options, generationParameters);
-                ProgramOptionsExtractor.PopulateChosenEnums(options, generationParameters);
-                ProgramOptionsExtractor.PopulateChosenPrimitives(options, generationParameters);
+                ProgramOptionsExtractor.PopulateComplexOptions(options, generationParameters);
 
                 var exampleGenerator = new ExampleGenerator(generationParameters);
-                string output = exampleGenerator.CreateExample(options.UriToPost);
+                string output = exampleGenerator.CreateExample(options.UriForMethod);
                 Console.WriteLine(output);
                 return 0;
             }
@@ -61,5 +65,7 @@ namespace ODataExampleGen
                 return 1;
             }
         }
+
+       
     }
 }

@@ -1,8 +1,6 @@
-﻿//---------------------------------------------------------------------
-// <copyright file="InMemoryMessage.cs" company="Microsoft">
-//      Copyright (C) Microsoft Corporation. All rights reserved. See License.txt in the project root for license information.
+﻿// <copyright file="InMemoryMessage.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
 // </copyright>
-//---------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -29,7 +27,7 @@ namespace ODataExampleGenerator
 
         public string GetHeader(string headerName)
         {
-            return this.headers.TryGetValue(headerName, out var headerValue) ? headerValue : null;
+            return this.headers.TryGetValue(headerName, out string headerValue) ? headerValue : null;
         }
 
         public void SetHeader(string headerName, string headerValue)

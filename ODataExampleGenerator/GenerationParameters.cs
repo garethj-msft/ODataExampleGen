@@ -1,24 +1,30 @@
-﻿using System.Net.Http;
-using System.Runtime.InteropServices.ComTypes;
+﻿// <copyright file="GenerationParameters.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System.Net.Http;
 
 namespace ODataExampleGenerator
 {
     using System;
     using System.Collections.Generic;
-    using System.IO;
-    using System.Text;
-    using System.Xml;
     using Microsoft.OData.Edm;
-    using Microsoft.OData.Edm.Csdl;
-    using Microsoft.OData.Edm.Validation;
-    using Microsoft.OData.UriParser;
 
     public class GenerationParameters
     {
+        /// <summary>
+        /// The method to generate an example for.
+        /// </summary>
         public HttpMethod HttpMethod { get; set; }
 
+        /// <summary>
+        /// The EDM model to work against.
+        /// </summary>
         public IEdmModel Model { get; set; }
 
+        /// <summary>
+        /// The URI of the root of the service.
+        /// </summary>
         public Uri ServiceRoot { get; set; }
 
         internal GenerationStyle GenerationStyle { get; set; }
@@ -29,31 +35,18 @@ namespace ODataExampleGenerator
         public IDictionary<string, string> ChosenPrimitives { get; } =
             new Dictionary<string, string>();
 
-        public void LoadModel(string csdlFileFullPath)
-        {
-            if (!File.Exists(csdlFileFullPath))
-            {
-                throw new InvalidOperationException($"Unable to locate csdl file: {csdlFileFullPath}");
-            }
+        public IDictionary<string, string> ChosenIdProviders { get; } =
+            new Dictionary<string, string>();
 
-            var reader = XmlReader.Create(new StringReader(File.ReadAllText(csdlFileFullPath)));
+        /// <summary>
+        /// Navigation properties that should have a deep insert gemerated for them for POST/PUT/PATCH requests.
+        /// </summary>
+        public IList<string> DeepInserts { get; set; }
 
-            if (CsdlReader.TryParse(reader, false, out IEdmModel model, out IEnumerable<EdmError> errors))
-            {
-                this.Model = model;
-            }
-            else
-            {
-                var errorMessages = new StringBuilder();
-                foreach (var error in errors)
-                {
-                    errorMessages.AppendLine(error.ErrorMessage);
-                }
-
-                throw new InvalidOperationException(
-                    $@"Failed to read model {csdlFileFullPath}.\r\nErrors:\r\n{errorMessages}");
-            }
-        }
+        /// <summary>
+        /// Properties that should be skipped in the generated requests.
+        /// </summary>
+        public IList<string> SkippedProperties { get; } = new List<string>();
     }
 
     public enum GenerationStyle

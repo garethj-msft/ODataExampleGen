@@ -1,4 +1,8 @@
-﻿using System;
+﻿// <copyright file="ODataExtensions.cs" company="Microsoft">
+// © Microsoft. All rights reserved.
+// </copyright>
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -35,8 +39,7 @@ namespace ODataExampleGenerator
                 segments.Add(new NavigationPropertySegment(p, null));
                 var propPath = new ODataPath(segments);
                 return PathSegmentToPathExpressionTranslator.GetPathExpression(
-                    propPath,
-                    parameters).TrimStart('/');
+                    propPath).TrimStart('/');
             }
 
             IEdmVocabularyAnnotatable root =
@@ -55,7 +58,7 @@ namespace ODataExampleGenerator
                     return true;
                 }
 
-                var readOnly =
+                bool readOnly =
                     // Structural Property has a Computed annotation of its own
                     p is IEdmStructuralProperty &&
                     p.VocabularyAnnotations(parameters.Model).Any(a =>
@@ -69,6 +72,13 @@ namespace ODataExampleGenerator
             });
         }
 
+        public static IEnumerable<T> FilterSkipped<T>(this IEnumerable<T> properties, ODataPath pathToProperties, GenerationParameters parameters)
+    where T : IEdmProperty
+        {
+            return properties.Where(p => !parameters.SkippedProperties.Contains(p.Name, StringComparer.OrdinalIgnoreCase));
+        }
+
+
         /// <summary>
         /// Check for a navigation restriction annotation on a root nav source.
         /// </summary>
@@ -76,20 +86,20 @@ namespace ODataExampleGenerator
         /// <param name="restrictedPath">The path that is specified for the navigation restriction.</param>
         /// <returns>Whether the restriction is present.</returns>
         private static bool HasReadOnlyNavigationRestriction(
-            IEnumerable<IEdmVocabularyAnnotation> rootAnnotations,
-            string restrictedPath) =>
-            rootAnnotations.Any(annotation =>
-                annotation.Term.FullName().EqualsOic(OrgODataCapabilitiesV1NavigationRestrictions) &&
-                annotation.Value.IsRecordWithProperty<IEdmCollectionExpression>("RestrictedProperties", restrictedPropertiesCollection=>
-                    restrictedPropertiesCollection.Elements.Any(restrictedPropertiesCollectionElement =>
-                        restrictedPropertiesCollectionElement.IsRecordWithProperty<IEdmPathExpression>("NavigationProperty", navigationProperty => 
-                            navigationProperty.Path.EqualsOic(restrictedPath)) &&
-                        restrictedPropertiesCollectionElement.IsRecordWithProperty<IEdmRecordExpression>("InsertRestrictions", insertRestrictions => 
-                            insertRestrictions.IsRecordWithProperty<IEdmBooleanConstantExpression>("Insertable", insertable => !insertable.Value)
-                        )
+        IEnumerable<IEdmVocabularyAnnotation> rootAnnotations,
+        string restrictedPath) =>
+        rootAnnotations.Any(annotation =>
+            annotation.Term.FullName().EqualsOic(OrgODataCapabilitiesV1NavigationRestrictions) &&
+            annotation.Value.IsRecordWithProperty<IEdmCollectionExpression>("RestrictedProperties", restrictedPropertiesCollection=>
+                restrictedPropertiesCollection.Elements.Any(restrictedPropertiesCollectionElement =>
+                    restrictedPropertiesCollectionElement.IsRecordWithProperty<IEdmPathExpression>("NavigationProperty", navigationProperty => 
+                        navigationProperty.Path.EqualsOic(restrictedPath)) &&
+                    restrictedPropertiesCollectionElement.IsRecordWithProperty<IEdmRecordExpression>("InsertRestrictions", insertRestrictions => 
+                        insertRestrictions.IsRecordWithProperty<IEdmBooleanConstantExpression>("Insertable", insertable => !insertable.Value)
                     )
                 )
-            );
+            )
+        );
 
         private static bool IsRecordWithProperty<TProperty>(
             this IEdmExpression value,
